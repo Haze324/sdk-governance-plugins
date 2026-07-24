@@ -1,0 +1,37 @@
+name: SDK 一致性检测（上游对比）
+on:
+  schedule:
+    - cron: '0 10 * * 1'       # 每周一早 10:00 自动检测（比巡检晚1小时）
+  workflow_dispatch:            # Actions tab 手动触发
+  issue_comment:                # Issue 评论触发
+    types: [created]
+
+jobs:
+  sdk-consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安装依赖
+        run: npm install
+
+      - name: 运行 SDK 一致性检测
+        id: consistency
+        run: npx ts-node src/consistency/main.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+          TRIGGER_SOURCE: ${{ github.event_name }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+
+      - name: 部署报告到 GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          keep_files: true

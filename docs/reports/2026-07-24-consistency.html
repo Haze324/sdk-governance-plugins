@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SDK 一致性检测报告 — 2026-07-24</title>
+  <style>
+    :root {
+      --bg: #ffffff; --text: #1a1a2e; --text-secondary: #6b7280;
+      --border: #e5e7eb; --card-bg: #f9fafb;
+      --critical: #dc2626; --critical-bg: #fef2f2;
+      --warning: #d97706; --warning-bg: #fffbeb;
+      --info: #2563eb; --info-bg: #eff6ff;
+      --radius: 8px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text); background: var(--bg); line-height: 1.6;
+      max-width: 960px; margin: 0 auto; padding: 32px 24px;
+    }
+    .header { border-bottom: 2px solid var(--border); padding-bottom: 24px; margin-bottom: 32px; }
+    .header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+    .header .meta { font-size: 14px; color: var(--text-secondary); }
+    .cards { display: flex; gap: 16px; margin-bottom: 32px; }
+    .card { flex: 1; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; text-align: center; }
+    .card .label { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+    .card .value { font-size: 32px; font-weight: 700; }
+    .card.critical .value { color: var(--critical); }
+    .card.warning .value { color: var(--warning); }
+    .card.info .value { color: var(--info); }
+    .filters { display: flex; gap: 8px; margin-bottom: 24px; align-items: center; }
+    .filters input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; }
+    .filter-btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); font-size: 13px; cursor: pointer; transition: all 0.15s; }
+    .filter-btn:hover { background: #f3f4f6; }
+    .filter-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+    .section-title { font-size: 16px; font-weight: 600; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .finding { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+    .finding-header { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; gap: 12px; }
+    .finding-header:hover { background: var(--card-bg); }
+    .severity-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; white-space: nowrap; }
+    .severity-badge.critical { background: var(--critical-bg); color: var(--critical); }
+    .severity-badge.high { background: var(--critical-bg); color: var(--critical); }
+    .severity-badge.warning { background: var(--warning-bg); color: var(--warning); }
+    .severity-badge.medium { background: var(--warning-bg); color: var(--warning); }
+    .severity-badge.info { background: var(--info-bg); color: var(--info); }
+    .severity-badge.low { background: var(--info-bg); color: var(--info); }
+    .finding-title { flex: 1; font-size: 14px; font-weight: 500; }
+    .finding-module { font-size: 12px; color: var(--text-secondary); }
+    .finding-body { display: none; padding: 0 16px 16px; font-size: 14px; border-top: 1px solid var(--border); }
+    .finding.open .finding-body { display: block; }
+    .finding-body .row { margin-top: 8px; }
+    .finding-body .row .label { font-size: 12px; color: var(--text-secondary); }
+    .cmp-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+    .cmp-table th, .cmp-table td { padding: 6px 10px; border: 1px solid var(--border); text-align: left; }
+    .cmp-table th { background: var(--card-bg); font-weight: 500; }
+    .cmp-table .missing { background: #fef2f2; }
+    .cmp-table .match { background: #f0fdf4; }
+    .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); }
+    .footer a { color: var(--info); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>SDK 一致性检测报告</h1>
+    <div class="meta">
+      检测时间：2026-07-24 10:00 CST &nbsp;|&nbsp;
+      上游 SDK：pay-sdk v2.0.0 &nbsp;|&nbsp;
+      鸿蒙包：@ohos/pay-sdk v1.0.0
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="label">功能缺失</div><div class="value">4</div></div>
+    <div class="card critical"><div class="label">严重风险</div><div class="value">1</div></div>
+    <div class="card warning"><div class="label">高风险</div><div class="value">2</div></div>
+    <div class="card info"><div class="label">中风险</div><div class="value">1</div></div>
+    <div class="card"><div class="label">总计</div><div class="value">8</div></div>
+  </div>
+
+  <div class="filters">
+    <input type="text" id="searchInput" placeholder="搜索类名或方法名..." oninput="filterFindings()">
+    <button class="filter-btn active" onclick="setFilter('all')" id="btn-all">全部</button>
+    <button class="filter-btn" onclick="setFilter('critical')" id="btn-critical">严重</button>
+    <button class="filter-btn" onclick="setFilter('high')" id="btn-high">高风险</button>
+    <button class="filter-btn" onclick="setFilter('medium')" id="btn-medium">中风险</button>
+  </div>
+
+  <div id="findings-container">
+
+    <!-- ═══ 功能缺失 ═══ -->
+    <div class="section-title">功能缺失（4 项）</div>
+
+    <div class="finding open" data-severity="critical">
+      <div class="finding-header">
+        <span class="severity-badge critical">严重</span>
+        <span class="finding-title">PaymentClient.initialize() — 初始化方法缺失</span>
+        <span class="finding-module">pay-sdk · 功能缺失</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">上游类：</span>com.example.pay.PaymentClient</div>
+        <div class="row"><span class="label">缺失方法：</span>initialize(Context context, PaymentConfig config)</div>
+        <div class="row"><span class="label">上游签名：</span>public static PaymentClient initialize(Context context, PaymentConfig config) throws PaymentException</div>
+        <div class="row"><span class="label">鸿蒙状态：</span>类 PaymentClient 存在，但 initialize 方法未导出</div>
+        <div class="row"><span class="label">重要程度：</span>严重 — 初始化是 SDK 的入口方法，缺失导致 SDK 完全不可用</div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>在鸿蒙包的 Index.ets 中导出 initialize 方法，确认参数类型映射正确</div>
+      </div>
+    </div>
+
+    <div class="finding open" data-severity="high">
+      <div class="finding-header">
+        <span class="severity-badge high">高风险</span>
+        <span class="finding-title">PaymentResult.getTransactionId() — 交易ID获取方法缺失</span>
+        <span class="finding-module">pay-sdk · 功能缺失</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">上游类：</span>com.example.pay.PaymentResult</div>
+        <div class="row"><span class="label">缺失方法：</span>getTransactionId(): String</div>
+        <div class="row"><span class="label">上游签名：</span>public String getTransactionId()</div>
+        <div class="row"><span class="label">鸿蒙状态：</span>PaymentResult 类存在，但缺少 getTransactionId 方法。只有 getOrderId() 和 getStatus()</div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>补充 getTransactionId 方法，从后端响应中提取交易流水号</div>
+      </div>
+    </div>
+
+    <div class="finding" data-severity="high">
+      <div class="finding-header">
+        <span class="severity-badge high">高风险</span>
+        <span class="finding-title">RefundClient 类 — 退款功能模块整体缺失</span>
+        <span class="finding-module">pay-sdk · 功能缺失</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">上游类：</span>com.example.pay.RefundClient（含 refund、queryRefund、cancelRefund 三个方法）</div>
+        <div class="row"><span class="label">鸿蒙状态：</span>鸿蒙包中未找到 RefundClient 类及相关方法</div>
+        <div class="row"><span class="label">影响范围：</span>退款功能整体不可用。如果业务需要退款能力，此缺失为阻塞性。</div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>补充 RefundClient 类，实现 refund / queryRefund / cancelRefund 三个方法</div>
+      </div>
+    </div>
+
+    <div class="finding" data-severity="warning">
+      <div class="finding-header">
+        <span class="severity-badge medium">中风险</span>
+        <span class="finding-title">PaymentConfig.Builder.setTimeout() — 超时配置方法缺失</span>
+        <span class="finding-module">pay-sdk · 功能缺失</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">上游类：</span>com.example.pay.PaymentConfig.Builder</div>
+        <div class="row"><span class="label">缺失方法：</span>setTimeout(int milliseconds): Builder</div>
+        <div class="row"><span class="label">鸿蒙状态：</span>Builder 类存在，但缺少超时设置。默认超时可能不满足业务需求</div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>补充超时配置方法，或在鸿蒙实现中使用默认超时值并文档说明</div>
+      </div>
+    </div>
+
+    <!-- ═══ Bug 风险 ═══ -->
+    <div class="section-title">Bug 风险（3 项）</div>
+
+    <div class="finding open" data-severity="high">
+      <div class="finding-header">
+        <span class="severity-badge high">高风险</span>
+        <span class="finding-title">PaymentClient.pay() 异步模式不匹配</span>
+        <span class="finding-module">pay-sdk · Bug风险</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">位置：</span>PaymentClient.pay(PayRequest request)</div>
+        <div class="row"><span class="label">上游签名：</span>public void pay(PayRequest request, PayCallback callback)</div>
+        <div class="row"><span class="label">鸿蒙签名：</span>pay(request: PayRequest): Promise&lt;PayResult&gt;</div>
+        <div class="row"><span class="label">差异：</span>上游使用回调模式（PayCallback），鸿蒙改为 Promise。调用方需从回调模式迁移到 async/await，时序处理不当可能导致重复支付。</div>
+        <div class="row" style="margin-top:12px"><span class="label">影响：</span>如果调用方仍按回调模式编码，支付结果将无法正确获取。高并发场景下可能触发多次支付。</div>
+        <div class="row"><span class="label">建议：</span>在鸿蒙包文档中明确标注异步模式变更，提供迁移示例代码。调用方需逐一检查所有 pay() 调用点。</div>
+      </div>
+    </div>
+
+    <div class="finding open" data-severity="high">
+      <div class="finding-header">
+        <span class="severity-badge high">高风险</span>
+        <span class="finding-title">PaymentResult 返回值类型变更 — String → PayResult 对象</span>
+        <span class="finding-module">pay-sdk · Bug风险</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">位置：</span>PaymentClient.queryOrder(String orderId)</div>
+        <div class="row"><span class="label">上游签名：</span>public PaymentResult queryOrder(String orderId)</div>
+        <div class="row"><span class="label">鸿蒙签名：</span>queryOrder(orderId: string): PayResult</div>
+        <div class="row"><span class="label">差异：</span>返回类型从 PaymentResult 变成了 PayResult（简化版对象）。PayResult 缺少 upstream PaymentResult 的 rawResponse 字段和 getRawJson() 方法。</div>
+        <div class="row" style="margin-top:12px"><span class="label">影响：</span>有代码依赖 rawResponse 做自定义解析的场景会运行时报错（undefined 访问）。</div>
+        <div class="row"><span class="label">建议：</span>在 PayResult 中补充 rawResponse 字段，或明确文档标注该字段的移除及替代方案</div>
+      </div>
+    </div>
+
+    <div class="finding" data-severity="medium">
+      <div class="finding-header">
+        <span class="severity-badge medium">中风险</span>
+        <span class="finding-title">PaymentException 异常处理缺失</span>
+        <span class="finding-module">pay-sdk · Bug风险</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">位置：</span>PaymentClient 多个方法</div>
+        <div class="row"><span class="label">上游异常：</span>PaymentException（含子类 NetworkException、AuthException、InvalidAmountException）</div>
+        <div class="row"><span class="label">鸿蒙状态：</span>Promise.catch 仅返回通用 Error，未细分异常类型。调用方无法区分网络错误、认证错误和金额错误，导致错误处理逻辑粗粒度。</div>
+        <div class="row" style="margin-top:12px"><span class="label">影响：</span>不同类型错误需要不同处理策略（网络错误可重试、认证错误需重新登录），统一 Error 导致重试逻辑不合理。</div>
+        <div class="row"><span class="label">建议：</span>定义自定义 Error 子类（PaymentError），在 catch 中根据 error.code 区分异常类型</div>
+      </div>
+    </div>
+
+    <!-- ═══ 平台适配风险 ═══ -->
+    <div class="section-title">平台适配风险（1 项）</div>
+
+    <div class="finding" data-severity="medium">
+      <div class="finding-header">
+        <span class="severity-badge medium">中风险</span>
+        <span class="finding-title">PaymentClient 涉及网络请求和加密 — 平台适配风险</span>
+        <span class="finding-module">pay-sdk · 平台适配</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">类：</span>PaymentClient（网络请求 / 加密 / 平台调用）</div>
+        <div class="row"><span class="label">风险说明：</span>该类涉及 HTTPS 请求、RSA 签名、系统 KeyStore 访问，均为平台敏感能力。鸿蒙平台的 HTTP 栈、加解密 API 和密钥管理机制与安卓不同，转化过程可能引入适配问题。</div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>人工审查鸿蒙实现中以下部分：
+          <br>— HTTPS 请求是否使用了鸿蒙 @ohos.net.http 模块
+          <br>— RSA 签名是否使用了鸿蒙 cryptoFramework
+          <br>— KeyStore 访问是否适配了鸿蒙 HUKS
+          <br>— 证书校验逻辑是否正确
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    由 <strong>SDK Consistency Checker v1.0</strong> 自动生成 &nbsp;|&nbsp;
+    <a href="https://github.com/Haze324/sdk-governance-plugins/issues/2">查看 GitHub Issue</a>
+  </div>
+
+  <script>
+    let activeFilter = 'all';
+    function setFilter(f) {
+      activeFilter = f;
+      document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.getElementById('btn-' + f).classList.add('active');
+      filterFindings();
+    }
+    function filterFindings() {
+      var query = document.getElementById('searchInput').value.toLowerCase();
+      document.querySelectorAll('.finding').forEach(function(el) {
+        var text = el.textContent.toLowerCase();
+        var severity = el.dataset.severity;
+        var matchSearch = !query || text.indexOf(query) !== -1;
+        var matchFilter = activeFilter === 'all' || severity === activeFilter;
+        el.style.display = (matchSearch && matchFilter) ? '' : 'none';
+      });
+    }
+    document.querySelectorAll('.finding-header').forEach(function(header) {
+      header.addEventListener('click', function() {
+        header.parentElement.classList.toggle('open');
+      });
+    });
+  </script>
+</body>
+</html>
