@@ -5,7 +5,7 @@
 ║                                                                              ║
 ║     功能：汇总版本审计结果，生成两种输出：                                       ║
 ║                                                                              ║
-║       ① GitHub Issue — 概览表 + 问题清单（按严重程度分组）                      ║
+║       ① GitHub Issue — 概览表 + 版本落后清单 + 已是最新清单                      ║
 ║       ② 静态详情页 — 完整报告，部署到 GitHub Pages                             ║
 ║                                                                              ║
 ║     Issue 生命周期：                                                           ║
@@ -13,62 +13,60 @@
 ║       - 上次 Issue 已关闭（已知悉/已处理）→ 不重复开                            ║
 ║       - 新扫描发现新问题 → 开新 Issue                                          ║
 ║                                                                              ║
-║     问题等级与触发条件：                                                        ║
-║       严重 → 风险版本命中（漏洞 / 已知bug / 禁用版本）                           ║
-║       警告 → 版本落后                                                          ║
-║       提示 → registry 不可达、lock 文件缺失                                    ║
+║     输出分类：                                                                 ║
+║       版本落后 → 当前版本 < 上游最新，展示版本差距和更新建议                       ║
+║       已是最新 → 当前版本 >= 上游最新，仅列出                                   ║
+║       不可达 → registry 不可达或 SDK 已下架                                    ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 */
 
 import { DependencyTree } from './scanner';
 import { OutdatedResult } from './version-check';
-import { RiskResult } from './risk-check';
 import { createIssue, closePreviousIssue, buildPagesReport } from '../shared/report-utils';
 
 /** 报告聚合输入 */
 interface ReportInput {
   depTree: DependencyTree;
   outdated: OutdatedResult;
-  risk: RiskResult;
 }
 
 /** 问题条目 */
 interface Finding {
-  severity: 'critical' | 'warning' | 'info';
   category: string;
   title: string;
   module: string;
   detail: string;
   suggestion: string;
+  status: 'outdated' | 'uptodate' | 'unreachable';
 }
 
 // ============================================================
 //  [核心] generateReport — 生成巡检报告
-//  收集所有检测结果 → 生成 Issue → 生成静态页面
 // ============================================================
 export async function generateReport(input: ReportInput): Promise<void> {
   const findings = collectFindings(input);
 
-  const critical = findings.filter(f => f.severity === 'critical');
-  const warnings = findings.filter(f => f.severity === 'warning');
-  const infos = findings.filter(f => f.severity === 'info');
+  const outdated = findings.filter(f => f.status === 'outdated');
+  const uptodate = findings.filter(f => f.status === 'uptodate');
+  const unreachable = findings.filter(f => f.status === 'unreachable');
+  const breakingCount = outdated.filter(f => f.detail.includes('跨大版本')).length;
 
   const summary = {
     timestamp: new Date().toISOString(),
     repo: process.env.REPO_NAME || '',
     totalSDKs: input.depTree.totalSDKs,
-    criticalCount: critical.length,
-    warningCount: warnings.length,
-    infoCount: infos.length,
-    totalFindings: findings.length,
+    outdatedCount: outdated.length,
+    uptodateCount: uptodate.length,
+    unreachableCount: unreachable.length,
+    breakingCount,
   };
 
   // ----------------------------------------------------------
   //  生成 Issue
   // ----------------------------------------------------------
-  const issueBody = buildIssueBody(summary, critical, warnings, infos);
-  const issueTitle = `[SDK巡检] ${summary.timestamp.slice(0, 10)} — SDK ${summary.totalSDKs} · 严重 ${summary.criticalCount} · 警告 ${summary.warningCount}`;
+  const issueBody = buildIssueBody(summary, outdated, uptodate, unreachable);
+  const issueTitle = `[SDK巡检] ${summary.timestamp.slice(0, 10)} — SDK ${summary.totalSDKs} · 落后 ${summary.outdatedCount} · 不可达 ${summary.unreachableCount}`;
 
   await closePreviousIssue('SDK巡检');
   const issueUrl = await createIssue(issueTitle, issueBody, ['sdk-inspect']);
@@ -85,115 +83,137 @@ export async function generateReport(input: ReportInput): Promise<void> {
 //  [核心] buildIssueBody — 构建 Issue 正文
 // ============================================================
 function buildIssueBody(
-  summary: ReturnType<typeof collectFindingsSummary>,
-  critical: Finding[],
-  warnings: Finding[],
-  infos: Finding[]
+  summary: Record<string, unknown>,
+  outdated: Finding[],
+  uptodate: Finding[],
+  unreachable: Finding[]
 ): string {
-  return [
+  const parts = [
     '## 概览',
     '',
     '| 指标 | 数值 |',
     '|------|------|',
-    `| 扫描时间 | ${summary.timestamp} |`,
-    `| SDK 总数 | ${summary.totalSDKs} |`,
-    `| 严重 | ${summary.criticalCount} |`,
-    `| 警告 | ${summary.warningCount} |`,
-    `| 提示 | ${summary.infoCount} |`,
+    `| 扫描时间 | ${summary['timestamp']} |`,
+    `| SDK 总数 | ${summary['totalSDKs']} |`,
+    `| 版本落后 | ${summary['outdatedCount']} |`,
+    `| 已是最新 | ${summary['uptodateCount']} |`,
+    `| 不可达 | ${summary['unreachableCount']} |`,
     '',
-    ...(critical.length > 0 ? ['## 严重问题', '', buildFindingTable(critical)] : []),
-    ...(warnings.length > 0 ? ['## 警告', '', buildFindingTable(warnings)] : []),
-    ...(infos.length > 0 ? ['## 提示', '', buildFindingTable(infos)] : []),
-    '',
-    '---',
-    '',
-    `📋 [查看完整报告](https://${getPagesHost()}/reports/${getReportFileName(summary.timestamp, 'inspect')})`,
-    '',
-    '🔄 回复 `/sdk-inspect` 重新触发巡检',
-  ].join('\n');
-}
+  ];
 
-function buildFindingTable(findings: Finding[]): string {
-  const rows = ['| SDK | 模块 | 分类 | 问题 | 建议 |', '|-----|------|------|------|------|'];
-  for (const f of findings) {
-    rows.push(`| ${f.title} | ${f.module} | ${f.category} | ${f.detail} | ${f.suggestion} |`);
+  if (outdated.length > 0) {
+    parts.push('## 版本落后', '');
+    parts.push('| SDK | 模块 | 当前版本 | 最新版本 | 差距 | 备注 |');
+    parts.push('|-----|------|---------|---------|------|------|');
+    for (const f of outdated) {
+      const parts_match = f.detail.match(/当前 ([\d.]+) → 最新 ([\d.]+)/);
+      const current = parts_match ? parts_match[1] : '?';
+      const latest = parts_match ? parts_match[2] : '?';
+      const gap = f.detail.includes('跨大版本') ? '大版本' : f.detail.includes('补丁') ? '补丁' : '小版本';
+      const note = f.detail.includes('跨大版本') ? '含 breaking changes' : f.detail.includes('补丁') ? '非紧急' : '向后兼容';
+      parts.push(`| ${f.title} | ${f.module} | ${current} | ${latest} | ${gap} | ${note} |`);
+    }
+    parts.push('');
   }
-  return rows.join('\n');
+
+  if (uptodate.length > 0) {
+    parts.push('## 已是最新', '');
+    parts.push('| SDK | 模块 | 版本 |');
+    parts.push('|-----|------|------|');
+    for (const f of uptodate) {
+      parts.push(`| ${f.title} | ${f.module} | ${f.detail} |`);
+    }
+    parts.push('');
+  }
+
+  if (unreachable.length > 0) {
+    parts.push('## 不可达', '');
+    parts.push('| SDK | 模块 | 问题 |');
+    parts.push('|-----|------|------|');
+    for (const f of unreachable) {
+      parts.push(`| ${f.title} | ${f.module} | ${f.detail} |`);
+    }
+    parts.push('');
+  }
+
+  parts.push('---');
+  parts.push('');
+  parts.push(`📋 [查看完整报告](https://${getPagesHost()}/reports/${getReportFileName(summary['timestamp'] as string, 'inspect')})`);
+  parts.push('');
+  parts.push('🔄 回复 `/sdk-inspect` 重新触发巡检');
+
+  return parts.join('\n');
 }
 
 // ============================================================
-//  [核心] collectFindings — 汇总各检测模块的问题
+//  [核心] collectFindings — 收集版本审计结果
 // ============================================================
 function collectFindings(input: ReportInput): Finding[] {
   const findings: Finding[] = [];
 
   // ----------------------------------------------------------
-  //  风险版本检测 → 严重
-  // ----------------------------------------------------------
-  for (const hit of input.risk.hits) {
-    findings.push({
-      severity: 'critical',
-      category: hit.risk.type === 'vulnerability' ? '漏洞' : hit.risk.type === 'bug' ? '已知bug' : '禁用版本',
-      title: hit.sdkName,
-      module: hit.module,
-      detail: `${hit.risk.description}（当前 ${hit.currentVersion}）`,
-      suggestion: hit.risk.fixVersion ? `升级到 ${hit.risk.fixVersion} 或更高` : '需人工评估',
-    });
-  }
-
-  // ----------------------------------------------------------
-  //  版本落后检测 → 警告
+  //  版本落后
   // ----------------------------------------------------------
   for (const outdated of input.outdated.outdatedSDKs) {
     findings.push({
-      severity: 'warning',
       category: '版本落后',
       title: outdated.name,
       module: outdated.module,
-      detail: `当前 ${outdated.currentVersion} → 最新 ${outdated.latestVersion}${outdated.isBreakingChange ? '（跨大版本）' : ''}`,
-      suggestion: outdated.isBreakingChange ? '注意 breaking changes，建议逐步升级' : '建议升级',
+      detail: `当前 ${outdated.currentVersion} → 最新 ${outdated.latestVersion}${outdated.isBreakingChange ? '（跨大版本，含 breaking changes）' : ''}`,
+      suggestion: outdated.isBreakingChange ? '逐步升级，每步验证后再继续' : '建议升级',
+      status: 'outdated',
     });
   }
 
   // ----------------------------------------------------------
-  //  registry 不可达 / SDK 下架 → 提示
+  //  registry 不可达
   // ----------------------------------------------------------
   for (const sdkName of input.outdated.unreachableSDKs) {
     findings.push({
-      severity: 'info',
-      category: '版本查询失败',
+      category: '不可达',
       title: sdkName,
       module: '-',
       detail: 'registry 不可达，无法查询最新版本',
       suggestion: '检查 registry 连接和认证配置',
+      status: 'unreachable',
     });
   }
 
+  // ----------------------------------------------------------
+  //  SDK 已下架
+  // ----------------------------------------------------------
   for (const sdkName of input.outdated.yankedSDKs) {
     findings.push({
-      severity: 'info',
-      category: 'SDK 已下架',
+      category: '已下架',
       title: sdkName,
       module: '-',
       detail: '该 SDK 在 registry 中标记为 yanked（已下架）',
       suggestion: '评估替代方案或联系 SDK 维护方',
+      status: 'unreachable',
+    });
+  }
+
+  // ----------------------------------------------------------
+  //  已是最新（从依赖树中筛选出不在落后列表中的 SDK）
+  // ----------------------------------------------------------
+  const outdatedNames = new Set(input.outdated.outdatedSDKs.map(o => o.name));
+  for (const sdk of input.depTree.sdks) {
+    if (sdk.dependencyType !== 'direct') continue;  // 只列直接依赖
+    if (outdatedNames.has(sdk.name)) continue;
+    if (input.outdated.unreachableSDKs.includes(sdk.name)) continue;
+    if (!sdk.version) continue;
+
+    findings.push({
+      category: '已是最新',
+      title: sdk.name,
+      module: sdk.module,
+      detail: `${sdk.version}`,
+      suggestion: '',
+      status: 'uptodate',
     });
   }
 
   return findings;
-}
-
-function collectFindingsSummary(input: ReportInput) {
-  const findings = collectFindings(input);
-  return {
-    timestamp: new Date().toISOString(),
-    repo: process.env.REPO_NAME || '',
-    totalSDKs: input.depTree.totalSDKs,
-    criticalCount: findings.filter(f => f.severity === 'critical').length,
-    warningCount: findings.filter(f => f.severity === 'warning').length,
-    infoCount: findings.filter(f => f.severity === 'info').length,
-    totalFindings: findings.length,
-  };
 }
 
 function getReportFileName(timestamp: string, plugin: string): string {

@@ -94,7 +94,6 @@ Issue body 包含：
 │   │   ├── main.ts              #   入口 — 编排巡检流程
 │   │   ├── scanner.ts           #   SDK 清单扫描 + 依赖树构建
 │   │   ├── version-check.ts     #   版本落后检测
-│   │   ├── risk-check.ts        #   风险版本检测（漏洞/bug/禁用）
 │   │   └── report.ts            #   生成 Issue + 静态页面
 │   │
 │   ├── consistency/             # 【一致性插件】
@@ -124,7 +123,6 @@ Issue body 包含：
 inspect:
   cron: "0 9 * * 1"              # 巡检 cron 表达式（每周一早9点）
   registry: https://xxx           # 私有 registry 地址，不填走开源默认
-  risk_db: https://xxx            # 风险版本数据库地址
   exclude:                        # 排除的 SDK 列表，跳过巡检
     - internal-test-sdk
 
