@@ -9,26 +9,33 @@ on:
 jobs:
   sdk-inspect:
     runs-on: ubuntu-latest
-    # ----------------------------------------------------------
-    #  过滤逻辑：不用 if 过滤 job（避免上下文解析错误），
-    #  全部交给第一步处理，后续步骤通过 needs_check 控制
-    # ----------------------------------------------------------
     steps:
       # ----------------------------------------------------------
-      #  第 1 步：判断是否真正需要执行
-      #    schedule / workflow_dispatch → 直接执行
-      #    issue_comment → 评论内容含 "/sdk-inspect" 才执行
-      #    不符合条件 → 设 should_run=false，后续步骤全部跳过
+      #  第 1 步：判断是否需要执行 + 提取评论上下文
+      #
+      #  关键：不在 env 中直接引用 github.event.comment，
+      #  因为 schedule/workflow_dispatch 事件中该上下文不存在，
+      #  GitHub Actions 解析阶段就会报 "Unrecognized named-value"。
+      #
+      #  改用 shell 读取 GitHub event payload JSON 文件，
+      #  只在 issue_comment 事件时才提取评论内容。
       # ----------------------------------------------------------
       - name: 判断触发条件
         id: check
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "触发方式：${{ github.event_name }} → 执行巡检"
+          EVENT_NAME="${{ github.event_name }}"
+
+          if [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "触发方式：$EVENT_NAME → 执行巡检"
             echo "should_run=true" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
-            COMMENT="${{ github.event.comment.body }}"
+            echo "comment_body=" >> $GITHUB_OUTPUT
+            echo "issue_url=" >> $GITHUB_OUTPUT
+          elif [ "$EVENT_NAME" = "issue_comment" ]; then
+            # 从 event payload 文件中安全提取评论内容
+            COMMENT=$(jq -r '.comment.body // ""' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "")
+            ISSUE_URL=$(jq -r '.issue.html_url // ""' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "")
+
             if echo "$COMMENT" | grep -q "/sdk-inspect"; then
               echo "触发方式：Issue 评论指令 → 执行巡检"
               echo "should_run=true" >> $GITHUB_OUTPUT
@@ -36,8 +43,10 @@ jobs:
               echo "跳过：评论不含 /sdk-inspect 指令"
               echo "should_run=false" >> $GITHUB_OUTPUT
             fi
+            echo "comment_body=$COMMENT" >> $GITHUB_OUTPUT
+            echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
           else
-            echo "跳过：未知触发来源 ${{ github.event_name }}"
+            echo "跳过：未知触发来源"
             echo "should_run=false" >> $GITHUB_OUTPUT
           fi
 
@@ -62,8 +71,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_NAME: ${{ github.repository }}
           TRIGGER_SOURCE: ${{ github.event_name }}
-          COMMENT_BODY: ${{ github.event_name == 'issue_comment' && github.event.comment.body || '' }}
-          COMMENT_ISSUE_URL: ${{ github.event_name == 'issue_comment' && github.event.issue.html_url || '' }}
+          COMMENT_BODY: ${{ steps.check.outputs.comment_body }}
+          COMMENT_ISSUE_URL: ${{ steps.check.outputs.issue_url }}
 
       - name: 部署报告到 GitHub Pages
         if: steps.check.outputs.should_run == 'true'
