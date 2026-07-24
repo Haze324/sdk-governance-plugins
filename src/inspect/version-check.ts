@@ -25,13 +25,13 @@
 import { DependencyTree, SDKEntry } from './scanner';
 
 /** 版本落后检测结果 */
-interface OutdatedResult {
+export interface OutdatedResult {
   outdatedSDKs: OutdatedSDK[];     // 落后的 SDK 列表
   unreachableSDKs: string[];       // registry 不可达的 SDK
   yankedSDKs: string[];            // 已下架的 SDK
 }
 
-interface OutdatedSDK {
+export interface OutdatedSDK {
   name: string;
   module: string;
   currentVersion: string;

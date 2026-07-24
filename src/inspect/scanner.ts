@@ -23,7 +23,7 @@ import { glob } from 'glob';
 // ============================================================
 
 /** SDK 信息条目 */
-interface SDKEntry {
+export interface SDKEntry {
   name: string;                    // SDK 名称，如 @ohos/pay-sdk
   version: string;                 // lock 文件中的精确版本，如 1.6.0
   declaredRange: string;           // json5 中声明的版本范围，如 ^1.6.0
@@ -35,7 +35,7 @@ interface SDKEntry {
 }
 
 /** 依赖树 */
-interface DependencyTree {
+export interface DependencyTree {
   sdks: SDKEntry[];                // 所有 SDK 条目
   totalSDKs: number;               // SDK 总数
   directCount: number;             // 直接依赖数
