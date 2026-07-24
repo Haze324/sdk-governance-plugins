@@ -66,9 +66,9 @@
   <div class="cards">
     <div class="card"><div class="label">SDK 总数</div><div class="value">12</div></div>
     <div class="card critical"><div class="label">严重</div><div class="value">3</div></div>
-    <div class="card warning"><div class="label">警告</div><div class="value">5</div></div>
-    <div class="card info"><div class="label">提示</div><div class="value">2</div></div>
-    <div class="card"><div class="label">问题总计</div><div class="value">10</div></div>
+    <div class="card warning"><div class="label">警告</div><div class="value">3</div></div>
+    <div class="card info"><div class="label">提示</div><div class="value">1</div></div>
+    <div class="card"><div class="label">问题总计</div><div class="value">7</div></div>
   </div>
 
   <div class="filters">
@@ -81,18 +81,18 @@
 
   <div id="findings-container">
 
-    <div class="section-title">严重（3 项）</div>
+    <div class="section-title">严重 — 风险版本命中（3 项）</div>
 
     <div class="finding open" data-severity="critical">
       <div class="finding-header">
         <span class="severity-badge critical">严重</span>
-        <span class="finding-title">pay-sdk — 命中漏洞 CVE-2025-1234</span>
-        <span class="finding-module">entry · 风险版本</span>
+        <span class="finding-title">pay-sdk — 命中漏洞 CVE-2025-1234（当前 1.6.0）</span>
+        <span class="finding-module">entry · 漏洞</span>
       </div>
       <div class="finding-body">
         <div class="row"><span class="label">SDK：</span>@ohos/pay-sdk</div>
-        <div class="row"><span class="label">当前版本：</span>1.6.0（lock 文件精确版本）</div>
-        <div class="row"><span class="label">问题描述：</span>该版本存在远程代码执行漏洞（CVE-2025-1234），攻击者可通过构造恶意支付请求执行任意代码。影响所有 1.6.x 版本。</div>
+        <div class="row"><span class="label">当前版本：</span>1.6.0</div>
+        <div class="row"><span class="label">问题：</span>该版本存在远程代码执行漏洞（CVE-2025-1234），攻击者可通过构造恶意支付请求执行任意代码</div>
         <div class="row"><span class="label">来源：</span>华为云漏洞库 — severity: critical</div>
         <div class="row" style="margin-top:12px"><span class="label">修复版本：</span>1.8.0</div>
         <div class="row"><span class="label">建议：</span>立即升级到 1.8.0 或更高版本</div>
@@ -102,123 +102,80 @@
     <div class="finding open" data-severity="critical">
       <div class="finding-header">
         <span class="severity-badge critical">严重</span>
-        <span class="finding-title">map-sdk — 命中已知 bug #5678</span>
-        <span class="finding-module">library · 风险版本</span>
+        <span class="finding-title">map-sdk — 命中已知 bug #5678（当前 2.1.0）</span>
+        <span class="finding-module">library · 已知bug</span>
       </div>
       <div class="finding-body">
         <div class="row"><span class="label">SDK：</span>@ohos/map-sdk</div>
         <div class="row"><span class="label">当前版本：</span>2.1.0</div>
-        <div class="row"><span class="label">问题描述：</span>该版本在鸿蒙平台存在地图渲染崩溃 bug（#5678），高并发场景下触发概率约 15%。map-sdk 2.1.0 的 Canvas 渲染引擎在鸿蒙环境存在内存泄漏，多次切换页面后导致 OOM。</div>
+        <div class="row"><span class="label">问题：</span>Canvas 渲染引擎在鸿蒙环境存在内存泄漏，多次切换页面后 OOM</div>
         <div class="row"><span class="label">来源：</span>华为云漏洞库 — severity: high</div>
         <div class="row" style="margin-top:12px"><span class="label">修复版本：</span>2.2.0</div>
-        <div class="row"><span class="label">建议：</span>升级到 2.2.0，修复了渲染引擎内存管理逻辑</div>
+        <div class="row"><span class="label">建议：</span>升级到 2.2.0，修复了渲染引擎内存管理</div>
       </div>
     </div>
 
     <div class="finding open" data-severity="critical">
       <div class="finding-header">
         <span class="severity-badge critical">严重</span>
-        <span class="finding-title">auth-sdk — 命中公司禁用版本</span>
-        <span class="finding-module">entry · 风险版本</span>
+        <span class="finding-title">auth-sdk — 命中公司禁用版本（当前 3.0.0）</span>
+        <span class="finding-module">entry · 禁用版本</span>
       </div>
       <div class="finding-body">
         <div class="row"><span class="label">SDK：</span>@ohos/auth-sdk</div>
         <div class="row"><span class="label">当前版本：</span>3.0.0</div>
-        <div class="row"><span class="label">问题描述：</span>该版本已被公司安全委员会禁用，存在认证绕过风险。禁用原因：OAuth 2.0 流程中 PKCE 校验不完整。</div>
+        <div class="row"><span class="label">问题：</span>OAuth 2.0 流程中 PKCE 校验不完整，存在认证绕过风险</div>
         <div class="row"><span class="label">来源：</span>公司风险版本数据库 — severity: critical</div>
         <div class="row" style="margin-top:12px"><span class="label">修复版本：</span>3.1.0</div>
         <div class="row"><span class="label">建议：</span>立即升级到 3.1.0，3.0.x 全系列已禁用</div>
       </div>
     </div>
 
-    <div class="section-title">警告（5 项）</div>
+    <div class="section-title">警告 — 版本落后（3 项）</div>
 
     <div class="finding" data-severity="warning">
       <div class="finding-header">
         <span class="severity-badge warning">警告</span>
-        <span class="finding-title">image-sdk — 版本落后 2 个大版本（当前 1.2.0 → 最新 3.0.0）</span>
+        <span class="finding-title">image-sdk — 当前 1.2.0 → 最新 3.0.0（跨大版本，含 breaking changes）</span>
         <span class="finding-module">entry · 版本落后</span>
       </div>
       <div class="finding-body">
         <div class="row"><span class="label">SDK：</span>@ohos/image-sdk</div>
         <div class="row"><span class="label">当前版本：</span>1.2.0（lock）</div>
-        <div class="row"><span class="label">上游最新：</span>3.0.0（跨大版本，可能含 breaking changes）</div>
-        <div class="row" style="margin-top:12px"><span class="label">建议：</span>建议逐步升级：1.2.0 → 2.0.0 → 3.0.0，注意 breaking changes。3.0 新增了 WebP/AVIF 格式支持和 GPU 加速渲染。</div>
+        <div class="row"><span class="label">上游最新：</span>3.0.0</div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>建议逐步升级 1.2.0 → 2.0.0 → 3.0.0，注意 breaking changes。3.0 新增 WebP/AVIF 和 GPU 加速渲染</div>
       </div>
     </div>
 
     <div class="finding" data-severity="warning">
       <div class="finding-header">
         <span class="severity-badge warning">警告</span>
-        <span class="finding-title">pay-sdk — 多模块版本不一致</span>
-        <span class="finding-module">entry / library · 版本一致性</span>
-      </div>
-      <div class="finding-body">
-        <div class="row"><span class="label">SDK：</span>@ohos/pay-sdk</div>
-        <div class="row"><span class="label">版本分布：</span>entry 模块 1.6.0，library 模块 1.8.0</div>
-        <div class="row"><span class="label">差异分析：</span>两个模块使用了不兼容的 API 版本。entry 还在用 1.6 的旧支付接口，library 已经升级到 1.8 的新接口。运行时可能存在方法签名不匹配。</div>
-        <div class="row" style="margin-top:12px"><span class="label">建议：</span>统一到最高版本 1.8.0，需同步更新 entry 模块的调用代码</div>
-      </div>
-    </div>
-
-    <div class="finding" data-severity="warning">
-      <div class="finding-header">
-        <span class="severity-badge warning">警告</span>
-        <span class="finding-title">network-sdk — 声明与 lock 不一致</span>
-        <span class="finding-module">entry · 版本一致性</span>
-      </div>
-      <div class="finding-body">
-        <div class="row"><span class="label">SDK：</span>@ohos/network-sdk</div>
-        <div class="row"><span class="label">声明版本：</span>^2.0.0（oh-package.json5）</div>
-        <div class="row"><span class="label">实际版本：</span>1.9.8（oh-package-lock.json5）</div>
-        <div class="row"><span class="label">分析：</span>依赖冲突导致降级。某个间接依赖要求 network-sdk < 2.0.0，lock 文件解析时被迫降级到 1.9.8。</div>
-        <div class="row" style="margin-top:12px"><span class="label">建议：</span>检查间接依赖中哪个包限制了版本，联系该包维护者升级依赖</div>
-      </div>
-    </div>
-
-    <div class="finding" data-severity="warning">
-      <div class="finding-header">
-        <span class="severity-badge warning">警告</span>
-        <span class="finding-title">log-sdk — 版本落后（当前 4.1.0 → 最新 4.3.1）</span>
+        <span class="finding-title">log-sdk — 当前 4.1.0 → 最新 4.3.1（落后 2 个小版本）</span>
         <span class="finding-module">entry · 版本落后</span>
       </div>
       <div class="finding-body">
         <div class="row"><span class="label">SDK：</span>@ohos/log-sdk</div>
         <div class="row"><span class="label">当前版本：</span>4.1.0</div>
         <div class="row"><span class="label">上游最新：</span>4.3.1（小版本更新，向后兼容）</div>
-        <div class="row" style="margin-top:12px"><span class="label">建议：</span>建议升级到 4.3.1，4.2.0 新增了结构化日志输出，4.3.0 修复了文件轮转 bug</div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>建议升级到 4.3.1。4.2.0 新增结构化日志，4.3.0 修复文件轮转 bug</div>
       </div>
     </div>
 
     <div class="finding" data-severity="warning">
       <div class="finding-header">
         <span class="severity-badge warning">警告</span>
-        <span class="finding-title">analytics-sdk — overrides 与 lock 不一致</span>
-        <span class="finding-module">工程级 overrides · 版本一致性</span>
-      </div>
-      <div class="finding-body">
-        <div class="row"><span class="label">SDK：</span>@ohos/analytics-sdk</div>
-        <div class="row"><span class="label">overrides 指定：</span>2.5.0</div>
-        <div class="row"><span class="label">实际安装：</span>2.3.1</div>
-        <div class="row"><span class="label">分析：</span>overrides 配置可能未生效，或被其他模块的依赖声明覆盖。</div>
-        <div class="row" style="margin-top:12px"><span class="label">建议：</span>检查 oh-package.json5 中 overrides 字段的配置方式，确认 ohpm 版本 >= 1.4.0</div>
-      </div>
-    </div>
-
-    <div class="section-title">提示（2 项）</div>
-
-    <div class="finding" data-severity="info">
-      <div class="finding-header">
-        <span class="severity-badge info">提示</span>
-        <span class="finding-title">storage-sdk — 有新版本可用（4.0.0 → 4.0.2）</span>
+        <span class="finding-title">storage-sdk — 当前 4.0.0 → 最新 4.0.2（补丁版本）</span>
         <span class="finding-module">library · 版本落后</span>
       </div>
       <div class="finding-body">
         <div class="row"><span class="label">SDK：</span>@ohos/storage-sdk</div>
-        <div class="row"><span class="label">当前：</span>4.0.0 &nbsp;|&nbsp; 最新：4.0.2（补丁版本，仅修复小问题）</div>
-        <div class="row" style="margin-top:12px"><span class="label">建议：</span>非紧急更新，可在下次例行升级时顺带更新</div>
+        <div class="row"><span class="label">当前版本：</span>4.0.0</div>
+        <div class="row"><span class="label">上游最新：</span>4.0.2（补丁版本）</div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>非紧急更新，下次例行升级时顺带更新</div>
       </div>
     </div>
+
+    <div class="section-title">提示（1 项）</div>
 
     <div class="finding" data-severity="info">
       <div class="finding-header">
@@ -228,8 +185,8 @@
       </div>
       <div class="finding-body">
         <div class="row"><span class="label">SDK：</span>@ohos/push-sdk</div>
-        <div class="row"><span class="label">当前：</span>1.0.0</div>
-        <div class="row" style="margin-top:12px"><span class="label">建议：</span>检查 .sdk-governance.yml 中 registry 是否配置了私有仓库地址</div>
+        <div class="row"><span class="label">当前版本：</span>1.0.0</div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>检查 .sdk-governance.yml 中 registry 字段是否配置了私有仓库地址</div>
       </div>
     </div>
 
@@ -246,23 +203,22 @@
     let activeFilter = 'all';
     function setFilter(f) {
       activeFilter = f;
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
       document.getElementById('btn-' + f).classList.add('active');
       filterFindings();
     }
     function filterFindings() {
       var query = document.getElementById('searchInput').value.toLowerCase();
-      var visible = 0;
+      var anyVisible = false;
       document.querySelectorAll('.finding').forEach(function(el) {
         var text = el.textContent.toLowerCase();
         var severity = el.dataset.severity;
         var matchSearch = !query || text.indexOf(query) !== -1;
         var matchFilter = activeFilter === 'all' || severity === activeFilter;
-        if (matchSearch && matchFilter) { el.style.display = ''; visible++; }
+        if (matchSearch && matchFilter) { el.style.display = ''; anyVisible = true; }
         else { el.style.display = 'none'; }
       });
-      document.querySelectorAll('.section-title').forEach(function(el) { el.style.display = visible ? '' : 'none'; });
-      document.getElementById('noResults').style.display = visible === 0 ? '' : 'none';
+      document.getElementById('noResults').style.display = anyVisible ? 'none' : '';
     }
     document.querySelectorAll('.finding-header').forEach(function(header) {
       header.addEventListener('click', function() {
