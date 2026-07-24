@@ -30,10 +30,24 @@ import { TriggerSource } from '../shared/config';
 
 // ============================================================
 //  [入口] SDK 巡检主流程
-//  编排顺序：清单扫描 → 版本落后检测 → 生成报告 → 发布 Issue
+//  编排顺序：触发判断 → 清单扫描 → 版本落后检测 → 生成报告 → 发布 Issue
 // ============================================================
 async function main() {
   const trigger = (process.env.TRIGGER_SOURCE || 'schedule') as TriggerSource;
+  const commentBody = process.env.COMMENT_BODY || '';
+
+  // ----------------------------------------------------------
+  //  触发方式处理
+  //    schedule/workflow_dispatch → 直接执行
+  //    issue_comment → 检查是否包含 /sdk-inspect 指令
+  // ----------------------------------------------------------
+  if (trigger === 'issue_comment') {
+    if (!commentBody.includes('/sdk-inspect')) {
+      console.log('[SDK Inspector] 评论不含 /sdk-inspect 指令，跳过');
+      return;
+    }
+    console.log('[SDK Inspector] 收到 Issue 评论触发指令');
+  }
 
   console.log('[SDK Inspector] ======== 开始巡检 ========');
 
