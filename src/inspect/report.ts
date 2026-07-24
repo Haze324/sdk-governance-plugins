@@ -23,7 +23,7 @@
 
 import { DependencyTree } from './scanner';
 import { OutdatedResult } from './version-check';
-import { createIssue, closePreviousIssue, buildPagesReport } from '../shared/report-utils';
+import { createIssue, closePreviousIssue, buildPagesReport, commentOnIssue } from '../shared/report-utils';
 
 /** 报告聚合输入 */
 interface ReportInput {
@@ -68,9 +68,25 @@ export async function generateReport(input: ReportInput): Promise<void> {
   const issueBody = buildIssueBody(summary, outdated, uptodate, unreachable);
   const issueTitle = `[SDK巡检] ${summary.timestamp.slice(0, 10)} — SDK ${summary.totalSDKs} · 落后 ${summary.outdatedCount} · 不可达 ${summary.unreachableCount}`;
 
-  await closePreviousIssue('SDK巡检');
-  const issueUrl = await createIssue(issueTitle, issueBody, ['sdk-inspect']);
-  console.log(`[报告生成] Issue 已创建: ${issueUrl}`);
+  // 定时/手动触发 → 建新 Issue + 关旧 Issue
+  // Issue 评论触发 → 在原 Issue 下回复简要结果，不建新 Issue
+  const trigger = process.env.TRIGGER_SOURCE || 'schedule';
+  const commentIssueUrl = process.env.COMMENT_ISSUE_URL || '';
+
+  if (trigger === 'issue_comment' && commentIssueUrl) {
+    // ----------------------------------------------------------
+    //  Issue 评论触发 → 在原 Issue 下回复简要结果
+    // ----------------------------------------------------------
+    await commentOnIssue(commentIssueUrl, buildCommentSummary(summary, outdated, unreachable));
+    console.log(`[报告生成] 已在原 Issue 下回复简要结果`);
+  } else {
+    // ----------------------------------------------------------
+    //  定时/手动触发 → 建新的汇总 Issue
+    // ----------------------------------------------------------
+    await closePreviousIssue('SDK巡检');
+    const issueUrl = await createIssue(issueTitle, issueBody, ['sdk-inspect']);
+    console.log(`[报告生成] Issue 已创建: ${issueUrl}`);
+  }
 
   // ----------------------------------------------------------
   //  生成静态详情页
@@ -224,4 +240,51 @@ function getPagesHost(): string {
   const repo = process.env.REPO_NAME || 'Haze324/sdk-governance-plugins';
   const [owner, name] = repo.split('/');
   return `${owner}.github.io/${name}`;
+}
+
+// ============================================================
+//  构建 Issue 评论回复的简要结果
+//  评论触发的，在原 Issue 下回复，不建新 Issue
+// ============================================================
+function buildCommentSummary(
+  summary: Record<string, unknown>,
+  outdated: Finding[],
+  unreachable: Finding[]
+): string {
+  const parts = ['## 巡检结果', ''];
+
+  if (outdated.length === 0 && unreachable.length === 0) {
+    parts.push(`SDK 总数 ${summary['totalSDKs']}，全部已是最新，未发现版本落后。`);
+  } else {
+    parts.push(`SDK 总数 ${summary['totalSDKs']}，版本落后 ${summary['outdatedCount']}，不可达 ${summary['unreachableCount']}。`);
+
+    if (outdated.length > 0) {
+      parts.push('');
+      parts.push('### 版本落后');
+      parts.push('');
+      parts.push('| SDK | 当前 | 最新 | 差距 |');
+      parts.push('|-----|------|------|------|');
+      for (const f of outdated) {
+        const m = f.detail.match(/当前 ([\d.]+) → 最新 ([\d.]+)/);
+        const cur = m?.[1] || '?';
+        const latest = m?.[2] || '?';
+        const gap = f.detail.includes('跨大版本') ? '大版本 ⚠' : f.detail.includes('补丁') ? '补丁' : '小版本';
+        parts.push(`| ${f.title} | ${cur} | ${latest} | ${gap} |`);
+      }
+    }
+
+    if (unreachable.length > 0) {
+      parts.push('');
+      parts.push('### 不可达');
+      parts.push('');
+      for (const f of unreachable) {
+        parts.push(`- **${f.title}**：${f.detail}`);
+      }
+    }
+  }
+
+  parts.push('');
+  parts.push(`📋 [完整报告](https://${getPagesHost()}/reports/${getReportFileName(summary['timestamp'] as string, 'inspect')})`);
+
+  return parts.join('\n');
 }

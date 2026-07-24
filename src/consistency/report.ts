@@ -13,7 +13,7 @@
 ╚══════════════════════════════════════════════════════════════════════════════╝
 */
 
-import { UpstreamAPI } from './upstream-parser';
+import { createIssue, closePreviousIssue, buildPagesReport, commentOnIssue } from '../shared/report-utils';
 import { HarmonyAPI } from './harmony-parser';
 import { APIComparison, BugRisk } from './comparator';
 import { createIssue, closePreviousIssue, buildPagesReport } from '../shared/report-utils';
@@ -82,9 +82,31 @@ export async function generateReport(input: ConsistencyReportInput): Promise<voi
   ].join('\n');
 
   // 关闭上次还开着的一致性 Issue，再建新的
-  await closePreviousIssue('SDK一致性');
-  const issueUrl = await createIssue(issueTitle, issueBody, ['sdk-consistency']);
-  console.log(`[一致性报告] Issue 已创建: ${issueUrl}`);
+  // 定时/手动触发 → 建新 Issue + 关旧 Issue
+  // Issue 评论触发 → 在原 Issue 下回复简要结果
+  const trigger = process.env.TRIGGER_SOURCE || 'schedule';
+  const commentIssueUrl = process.env.COMMENT_ISSUE_URL || '';
+
+  let issueUrl = '';
+  if (trigger === 'issue_comment' && commentIssueUrl) {
+    const commentSummary = [
+      '## 一致性检测结果',
+      '',
+      `上游 ${input.upstream.sdkName} v${input.upstream.sdkVersion} → 鸿蒙 ${input.harmony.sdkName} v${input.harmony.sdkVersion}`,
+      '',
+      `功能缺失 ${missingCount} 项，Bug 风险 ${bugRiskCount} 项`,
+      '',
+      critical.length > 0 ? `### 严重（${critical.length}）` : '',
+      ...critical.slice(0, 5).map(f => `- **${f.item}**：${f.detail.slice(0, 100)}`),
+      '',
+      `📋 [完整报告](https://${getPagesBaseUrl()}/reports/${date}-consistency.html)`,
+    ].filter(Boolean).join('\n');
+    await commentOnIssue(commentIssueUrl, commentSummary);
+  } else {
+    await closePreviousIssue('SDK一致性');
+    issueUrl = await createIssue(issueTitle, issueBody, ['sdk-consistency']);
+  }
+  console.log(`[一致性报告] 结果已输出`);
 
   // ----------------------------------------------------------
   //  生成静态详情页
