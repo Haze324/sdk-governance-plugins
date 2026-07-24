@@ -143,7 +143,7 @@ export async function closePreviousIssue(issuePrefix: string): Promise<void> {
 // ============================================================
 export async function buildPagesReport(
   data: Record<string, unknown>,
-  findings: Array<Record<string, unknown>>,
+  findings: unknown[],
   issueUrl: string,
   plugin: string
 ): Promise<string> {
@@ -164,7 +164,7 @@ export async function buildPagesReport(
 // ============================================================
 function generateReportHTML(
   data: Record<string, unknown>,
-  findings: Array<Record<string, unknown>>,
+  findings: unknown[],
   issueUrl: string,
   plugin: string
 ): string {
@@ -260,13 +260,13 @@ function generateReportHTML(
 </html>`;
 }
 
-function renderFindingsHTML(findings: Array<Record<string, unknown>>): string {
+function renderFindingsHTML(findings: unknown[]): string {
   if (findings.length === 0) return '<p style="text-align:center;color:var(--text-secondary);padding:48px">未发现问题</p>';
 
-  const groups: Record<string, Array<Record<string, unknown>>> = {
-    critical: findings.filter(f => f['severity'] === 'critical' || f['severity'] === 'high'),
-    warning: findings.filter(f => f['severity'] === 'warning' || f['severity'] === 'medium' || f['status'] === 'outdated'),
-    info: findings.filter(f => f['severity'] === 'info' || f['severity'] === 'low' || f['status'] === 'uptodate' || f['status'] === 'unreachable'),
+  const groups: Record<string, unknown[]> = {
+    critical: findings.filter((f: any) => f['severity'] === 'critical' || f['severity'] === 'high'),
+    warning: findings.filter((f: any) => f['severity'] === 'warning' || f['severity'] === 'medium' || f['status'] === 'outdated'),
+    info: findings.filter((f: any) => f['severity'] === 'info' || f['severity'] === 'low' || f['status'] === 'uptodate' || f['status'] === 'unreachable'),
   };
 
   const labels: Record<string, string> = {
@@ -277,7 +277,8 @@ function renderFindingsHTML(findings: Array<Record<string, unknown>>): string {
   for (const [severity, items] of Object.entries(groups)) {
     if (items.length === 0) continue;
     html += `<div class="section-title">${labels[severity]}（${items.length} 项）</div>`;
-    for (const f of items) {
+    for (const item of items) {
+      const f = item as any;
       const title = f['title'] || f['item'] || '—';
       html += `<div class="finding" data-severity="${severity}">
         <div class="finding-header">
