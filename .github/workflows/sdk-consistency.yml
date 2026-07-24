@@ -9,32 +9,54 @@ on:
 jobs:
   sdk-consistency:
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.comment.body, '/sdk-consistency')
     steps:
+      - name: 判断触发条件
+        id: check
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "触发方式：${{ github.event_name }} → 执行一致性检测"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
+            COMMENT="${{ github.event.comment.body }}"
+            if echo "$COMMENT" | grep -q "/sdk-consistency"; then
+              echo "触发方式：Issue 评论指令 → 执行一致性检测"
+              echo "should_run=true" >> $GITHUB_OUTPUT
+            else
+              echo "跳过：评论不含 /sdk-consistency 指令"
+              echo "should_run=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "跳过：未知触发来源 ${{ github.event_name }}"
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.check.outputs.should_run == 'true'
 
       - name: 安装 Node.js
+        if: steps.check.outputs.should_run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: 安装依赖
+        if: steps.check.outputs.should_run == 'true'
         run: npm install
 
       - name: 运行 SDK 一致性检测
+        if: steps.check.outputs.should_run == 'true'
         id: consistency
         run: npx ts-node src/consistency/main.ts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_NAME: ${{ github.repository }}
           TRIGGER_SOURCE: ${{ github.event_name }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          COMMENT_ISSUE_URL: ${{ github.event.issue.html_url }}
+          COMMENT_BODY: ${{ github.event_name == 'issue_comment' && github.event.comment.body || '' }}
+          COMMENT_ISSUE_URL: ${{ github.event_name == 'issue_comment' && github.event.issue.html_url || '' }}
 
       - name: 部署报告到 GitHub Pages
+        if: steps.check.outputs.should_run == 'true'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
