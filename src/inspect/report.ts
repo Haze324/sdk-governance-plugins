@@ -73,18 +73,13 @@ export async function generateReport(input: ReportInput): Promise<void> {
   const trigger = process.env.TRIGGER_SOURCE || 'schedule';
   const commentIssueUrl = process.env.COMMENT_ISSUE_URL || '';
 
+  let issueUrl = '';
   if (trigger === 'issue_comment' && commentIssueUrl) {
-    // ----------------------------------------------------------
-    //  Issue 评论触发 → 在原 Issue 下回复简要结果
-    // ----------------------------------------------------------
     await commentOnIssue(commentIssueUrl, buildCommentSummary(summary, outdated, unreachable));
     console.log(`[报告生成] 已在原 Issue 下回复简要结果`);
   } else {
-    // ----------------------------------------------------------
-    //  定时/手动触发 → 建新的汇总 Issue
-    // ----------------------------------------------------------
     await closePreviousIssue('SDK巡检');
-    const issueUrl = await createIssue(issueTitle, issueBody, ['sdk-inspect']);
+    issueUrl = await createIssue(issueTitle, issueBody, ['sdk-inspect']);
     console.log(`[报告生成] Issue 已创建: ${issueUrl}`);
   }
 
