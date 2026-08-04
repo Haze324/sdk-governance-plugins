@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SDK 巡检报告 — 2026-07-24</title>
+  <style>
+    :root {
+      --bg: #ffffff; --text: #1a1a2e; --text-secondary: #6b7280;
+      --border: #e5e7eb; --card-bg: #f9fafb;
+      --danger: #dc2626; --danger-bg: #fef2f2;
+      --warning: #d97706; --warning-bg: #fffbeb;
+      --info: #2563eb; --info-bg: #eff6ff;
+      --success: #16a34a; --success-bg: #f0fdf4;
+      --radius: 8px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text); background: var(--bg); line-height: 1.6;
+      max-width: 960px; margin: 0 auto; padding: 32px 24px;
+    }
+    .header { border-bottom: 2px solid var(--border); padding-bottom: 24px; margin-bottom: 32px; }
+    .header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+    .header .meta { font-size: 14px; color: var(--text-secondary); }
+    .cards { display: flex; gap: 16px; margin-bottom: 32px; }
+    .card { flex: 1; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; text-align: center; }
+    .card .label { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+    .card .value { font-size: 32px; font-weight: 700; }
+    .card.total .value { color: var(--text); }
+    .card.outdated .value { color: var(--warning); }
+    .card.breaking .value { color: var(--danger); }
+    .card.uptodate .value { color: var(--success); }
+    .card.unreachable .value { color: var(--info); }
+    .filters { display: flex; gap: 8px; margin-bottom: 24px; align-items: center; }
+    .filters input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; }
+    .filter-btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); font-size: 13px; cursor: pointer; transition: all 0.15s; }
+    .filter-btn:hover { background: #f3f4f6; }
+    .filter-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+    .section-title { font-size: 16px; font-weight: 600; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .finding { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+    .finding-header { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; gap: 12px; }
+    .finding-header:hover { background: var(--card-bg); }
+    .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
+    .badge.breaking { background: var(--danger-bg); color: var(--danger); }
+    .badge.outdated { background: var(--warning-bg); color: var(--warning); }
+    .badge.uptodate { background: var(--success-bg); color: var(--success); }
+    .badge.unreachable { background: var(--info-bg); color: var(--info); }
+    .finding-title { flex: 1; font-size: 14px; font-weight: 500; }
+    .finding-module { font-size: 12px; color: var(--text-secondary); }
+    .finding-body { display: none; padding: 0 16px 16px; font-size: 14px; border-top: 1px solid var(--border); }
+    .finding.open .finding-body { display: block; }
+    .finding-body .row { margin-top: 8px; }
+    .finding-body .row .label { font-size: 12px; color: var(--text-secondary); }
+    .version-arrow { display: flex; align-items: center; gap: 8px; font-size: 15px; margin: 8px 0; }
+    .version-old { color: var(--text-secondary); }
+    .version-new { color: var(--text); font-weight: 600; }
+    .version-gap { font-size: 12px; color: var(--text-secondary); }
+    .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); }
+    .footer a { color: var(--info); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>SDK 巡检版本审计报告</h1>
+    <div class="meta">
+      扫描时间：2026-07-24 09:00 CST &nbsp;|&nbsp;
+      仓库：Haze324/sdk-governance-plugins &nbsp;|&nbsp;
+      分支：main
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card total"><div class="label">SDK 总数</div><div class="value">12</div></div>
+    <div class="card outdated"><div class="label">版本落后</div><div class="value">3</div></div>
+    <div class="card breaking"><div class="label">跨大版本</div><div class="value">1</div></div>
+    <div class="card uptodate"><div class="label">已是最新</div><div class="value">8</div></div>
+    <div class="card unreachable"><div class="label">不可达</div><div class="value">1</div></div>
+  </div>
+
+  <div class="filters">
+    <input type="text" id="searchInput" placeholder="搜索 SDK 名称或模块..." oninput="filterFindings()">
+    <button class="filter-btn active" onclick="setFilter('all')" id="btn-all">全部</button>
+    <button class="filter-btn" onclick="setFilter('outdated')" id="btn-outdated">版本落后</button>
+    <button class="filter-btn" onclick="setFilter('uptodate')" id="btn-uptodate">已是最新</button>
+  </div>
+
+  <div id="findings-container">
+
+    <div class="section-title">版本落后（3 项）</div>
+
+    <div class="finding open" data-status="outdated">
+      <div class="finding-header">
+        <span class="badge breaking">跨大版本</span>
+        <span class="finding-title">image-sdk — 1.2.0 → 3.0.0</span>
+        <span class="finding-module">entry</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">SDK：</span>@ohos/image-sdk</div>
+        <div class="version-arrow">
+          <span class="version-old">1.2.0</span>
+          <span>→</span>
+          <span class="version-new">3.0.0</span>
+          <span class="version-gap">（落后 2 个大版本）</span>
+        </div>
+        <div class="row"><span class="label">差距：</span>从 1.x 跨越 2.x 直接跳 3.x，含 breaking changes</div>
+        <div class="row"><span class="label">3.0 新增：</span>WebP/AVIF 格式支持、GPU 加速渲染</div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>建议逐步升级 1.2.0 → 2.0.0 → 3.0.0，每步验证后再继续</div>
+      </div>
+    </div>
+
+    <div class="finding open" data-status="outdated">
+      <div class="finding-header">
+        <span class="badge outdated">版本落后</span>
+        <span class="finding-title">log-sdk — 4.1.0 → 4.3.1</span>
+        <span class="finding-module">entry</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">SDK：</span>@ohos/log-sdk</div>
+        <div class="version-arrow">
+          <span class="version-old">4.1.0</span>
+          <span>→</span>
+          <span class="version-new">4.3.1</span>
+          <span class="version-gap">（落后 2 个小版本，向后兼容）</span>
+        </div>
+        <div class="row"><span class="label">更新内容：</span>4.2.0 新增结构化日志输出；4.3.0 修复文件轮转 bug</div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>直接升级到 4.3.1，无 breaking changes</div>
+      </div>
+    </div>
+
+    <div class="finding" data-status="outdated">
+      <div class="finding-header">
+        <span class="badge outdated">版本落后</span>
+        <span class="finding-title">storage-sdk — 4.0.0 → 4.0.2</span>
+        <span class="finding-module">library</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">SDK：</span>@ohos/storage-sdk</div>
+        <div class="version-arrow">
+          <span class="version-old">4.0.0</span>
+          <span>→</span>
+          <span class="version-new">4.0.2</span>
+          <span class="version-gap">（补丁版本，仅 bug 修复）</span>
+        </div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>非紧急，下次例行升级顺带更新</div>
+      </div>
+    </div>
+
+    <div class="section-title">已是最新（8 项）</div>
+
+    <div class="finding" data-status="uptodate">
+      <div class="finding-header">
+        <span class="badge uptodate">已是最新</span>
+        <span class="finding-title">pay-sdk@1.8.0 / map-sdk@2.2.0 / auth-sdk@3.1.0 / network-sdk@2.0.0 / analytics-sdk@2.5.0 / push-sdk@1.0.0 / cache-sdk@1.3.0 / db-sdk@5.0.0</span>
+        <span class="finding-module">多模块</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">说明：</span>以上 8 个 SDK 当前版本均等于或高于上游 registry 最新版本，无更新需求</div>
+      </div>
+    </div>
+
+    <div class="section-title">不可达（1 项）</div>
+
+    <div class="finding" data-status="outdated">
+      <div class="finding-header">
+        <span class="badge unreachable">不可达</span>
+        <span class="finding-title">push-sdk@1.0.0 — registry 不可达，跳过版本查询</span>
+        <span class="finding-module">entry</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">SDK：</span>@ohos/push-sdk</div>
+        <div class="row"><span class="label">原因：</span>私有 registry 地址未配置，默认开源 registry 中未找到该包</div>
+        <div class="row" style="margin-top:12px"><span class="label">建议：</span>检查 .sdk-governance.yml 中的 registry 字段</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    由 <strong>SDK Inspector v1.0</strong> 自动生成 &nbsp;|&nbsp;
+    <a href="https://github.com/Haze324/sdk-governance-plugins/issues/1">查看 GitHub Issue</a>
+  </div>
+
+  <script>
+    let activeFilter = 'all';
+    function setFilter(f) {
+      activeFilter = f;
+      document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.getElementById('btn-' + f).classList.add('active');
+      filterFindings();
+    }
+    function filterFindings() {
+      var query = document.getElementById('searchInput').value.toLowerCase();
+      document.querySelectorAll('.finding').forEach(function(el) {
+        var text = el.textContent.toLowerCase();
+        var status = el.dataset.status;
+        var matchSearch = !query || text.indexOf(query) !== -1;
+        var matchFilter = activeFilter === 'all' || status === activeFilter;
+        el.style.display = (matchSearch && matchFilter) ? '' : 'none';
+      });
+      document.querySelectorAll('.section-title').forEach(function(el) {
+        var next = el.nextElementSibling;
+        var visible = false;
+        while (next && !next.classList.contains('section-title')) {
+          if (next.style.display !== 'none') visible = true;
+          next = next.nextElementSibling;
+        }
+        el.style.display = visible ? '' : 'none';
+      });
+    }
+    document.querySelectorAll('.finding-header').forEach(function(header) {
+      header.addEventListener('click', function() {
+        header.parentElement.classList.toggle('open');
+      });
+    });
+  </script>
+</body>
+</html>
