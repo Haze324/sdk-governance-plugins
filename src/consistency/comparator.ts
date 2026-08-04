@@ -30,7 +30,7 @@ import { UpstreamAPI } from './upstream-parser';
 import { HarmonyAPI } from './harmony-parser';
 
 /** API 对比结果 */
-interface APIComparison {
+export interface APIComparison {
   // 功能缺失
   missingClasses: MissingItem[];       // 缺失的类
   missingFunctions: MissingItem[];     // 缺失的方法
@@ -46,7 +46,7 @@ interface APIComparison {
 }
 
 /** 缺失项 */
-interface MissingItem {
+export interface MissingItem {
   name: string;                        // 缺失的类/方法/字段名
   parentClass: string;                 // 所属类（方法/字段缺失时标注）
   parentModule: string;                // 所属功能模块
@@ -55,7 +55,7 @@ interface MissingItem {
 }
 
 /** 匹配的函数（上游和鸿蒙都有，但可能签名不同）*/
-interface MatchedFunction {
+export interface MatchedFunction {
   name: string;                        // 方法名
   parentClass: string;                 // 所属类名
   upstreamSignature: string;           // 上游签名
@@ -69,14 +69,14 @@ interface MatchedFunction {
   missingExceptionHandling: string[];  // 缺失的异常处理
 }
 
-interface ParamChange {
+export interface ParamChange {
   paramName: string;
   upstreamType: string;
   harmonyType: string;
 }
 
 /** Bug 风险 */
-interface BugRisk {
+export interface BugRisk {
   severity: 'critical' | 'high' | 'medium' | 'low';
   category: 'signature_change' | 'async_mismatch' | 'missing_exception' | 'platform_adaptation';
   description: string;

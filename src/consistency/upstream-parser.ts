@@ -25,7 +25,7 @@
 */
 
 /** 上游 SDK API 清单 */
-interface UpstreamAPI {
+export interface UpstreamAPI {
   sdkName: string;               // SDK 名称
   sdkVersion: string;            // 上游版本号
   source: string;                // 资料来源（如 Maven 坐标、源码路径）

@@ -14,12 +14,12 @@
 */
 
 import { createIssue, closePreviousIssue, buildPagesReport, commentOnIssue } from '../shared/report-utils';
+import { UpstreamAPI } from './upstream-parser';
 import { HarmonyAPI } from './harmony-parser';
 import { APIComparison, BugRisk } from './comparator';
-import { createIssue, closePreviousIssue, buildPagesReport } from '../shared/report-utils';
 
 /** 一致性报告输入 */
-interface ConsistencyReportInput {
+export interface ConsistencyReportInput {
   upstream: UpstreamAPI;
   harmony: HarmonyAPI;
   comparison: APIComparison;
@@ -28,7 +28,7 @@ interface ConsistencyReportInput {
 }
 
 /** 问题条目（统一数据结构，用于 Issue 和页面生成）*/
-interface ConsistencyFinding {
+export interface ConsistencyFinding {
   severity: 'critical' | 'high' | 'medium' | 'low';
   category: '功能缺失' | 'Bug风险';
   sdkName: string;

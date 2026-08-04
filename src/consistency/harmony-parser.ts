@@ -25,7 +25,7 @@
 */
 
 /** 鸿蒙包 API 清单 */
-interface HarmonyAPI {
+export interface HarmonyAPI {
   sdkName: string;               // 鸿蒙包名
   sdkVersion: string;            // 鸿蒙包版本
   packages: HarmonyPackage[];    // 包/模块列表

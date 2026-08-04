@@ -23,6 +23,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
+import { parse as parseYAML } from 'yaml';
 
 /** 插件配置 */
 interface SDKGovernanceConfig {
@@ -63,8 +64,7 @@ export function readConfig(): SDKGovernanceConfig {
 
   try {
     const content = readFileSync(configPath, 'utf-8');
-    // YAML 简易解析（开发时替换为 yaml 库）
-    return parseSimpleYAML(content) as SDKGovernanceConfig;
+    return parseYAML(content) as SDKGovernanceConfig;
   } catch (err) {
     console.error('[配置] 配置文件解析失败:', err);
     return {};
@@ -93,16 +93,6 @@ export function getConsistencyConfig() {
     sources: config.consistency?.sources || [],
     targets: config.consistency?.targets || [],
   };
-}
-
-/**
- * 简易 YAML 解析（仅支持平铺和单层嵌套）
- * 开发时替换为 js-yaml 或 yaml 库
- */
-function parseSimpleYAML(content: string): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  // TODO: 替换为正则 YAML 解析库
-  return result;
 }
 
 export type { SDKGovernanceConfig, TriggerSource };

@@ -97,15 +97,18 @@ export async function commentOnIssue(
 //  [对外接口] closePreviousIssue — 关闭上次同类型还开着的 Issue
 //  防止同一类型的问题积累多个 Issue
 // ============================================================
-export async function closePreviousIssue(issuePrefix: string): Promise<void> {
+export async function closePreviousIssue(issuePrefix: string, label?: string): Promise<void> {
   const token = process.env.GITHUB_TOKEN;
   const repo = process.env.REPO_NAME || process.env.GITHUB_REPOSITORY;
 
   if (!token || !repo) return;
 
+  // 根据前缀决定 label：SDK巡检 → sdk-inspect，SDK一致性 → sdk-consistency
+  const labelsFilter = label || (issuePrefix === 'SDK一致性' ? 'sdk-consistency' : 'sdk-inspect');
+
   try {
     const response = await fetch(
-      `https://api.github.com/repos/${repo}/issues?state=open&labels=sdk-inspect&per_page=100`,
+      `https://api.github.com/repos/${repo}/issues?state=open&labels=${labelsFilter}&per_page=100`,
       {
         headers: {
           'Authorization': `token ${token}`,

@@ -43,7 +43,10 @@ jobs:
               echo "跳过：评论不含 /sdk-inspect 指令"
               echo "should_run=false" >> $GITHUB_OUTPUT
             fi
-            echo "comment_body=$COMMENT" >> $GITHUB_OUTPUT
+            # 多行值用 heredoc 安全写入 GITHUB_OUTPUT，避免换行截断
+            echo "comment_body<<COMMENT_EOF" >> $GITHUB_OUTPUT
+            echo "$COMMENT" >> $GITHUB_OUTPUT
+            echo "COMMENT_EOF" >> $GITHUB_OUTPUT
             echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
           else
             echo "跳过：未知触发来源"
