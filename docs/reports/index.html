@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SDK 治理插件 — 报告目录</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 60px auto; padding: 0 24px; color: #1a1a2e; }
+    h1 { font-size: 20px; margin-bottom: 8px; }
+    .subtitle { color: #6b7280; font-size: 14px; margin-bottom: 32px; }
+    .section { margin-bottom: 28px; }
+    .section h2 { font-size: 15px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e5e7eb; }
+    .card { display: block; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 18px; margin-bottom: 8px; text-decoration: none; color: inherit; }
+    .card:hover { background: #f9fafb; }
+    .card .title { font-weight: 600; font-size: 14px; }
+    .card .meta { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 8px; margin-left: 6px; }
+    .tag.upgrade { background: #fef3c7; color: #d97706; }
+    .tag.completeness { background: #eff6ff; color: #2563eb; }
+    .tag.problem { background: #fef2f2; color: #dc2626; }
+    .tag.ok { background: #f0fdf4; color: #16a34a; }
+  </style>
+</head>
+<body>
+  <h1>SDK 治理插件 — 报告目录</h1>
+  <p class="subtitle">仓库：Haze324/sdk-governance-plugins · 所有检测报告</p>
+
+  <div class="section">
+    <h2>2026-08-05</h2>
+
+    <a href="2026-08-05-update-problem.html" class="card">
+      <div class="title">三方库更新检测 <span class="tag problem">有问题</span></div>
+      <div class="meta">SDK 15 · 落后 4 · 兼容性问题 2 · 安全漏洞 1 · 确定性模式</div>
+    </a>
+
+    <a href="2026-08-05-completeness-problem.html" class="card">
+      <div class="title">三方库完整性检测 <span class="tag problem">有问题</span></div>
+      <div class="meta">pay-sdk 缺失 3 · Bug 风险 2</div>
+    </a>
+
+    <a href="2026-08-05-update.html" class="card">
+      <div class="title">三方库更新检测 <span class="tag ok">无问题</span></div>
+      <div class="meta">SDK 15 · 全部最新 · 确定性模式</div>
+    </a>
+
+    <a href="2026-08-05-completeness.html" class="card">
+      <div class="title">三方库完整性检测 <span class="tag ok">无问题</span></div>
+      <div class="meta">pay-sdk 全部匹配</div>
+    </a>
+  </div>
+
+  <div class="section">
+    <h2>历史报告</h2>
+    <a href="2026-07-24-inspect.html" class="card">
+      <div class="title">SDK 巡检 <span class="tag upgrade">V1 旧版</span></div>
+      <div class="meta">2026-07-24 · inspect 插件（已升级至 update）</div>
+    </a>
+    <a href="2026-07-24-consistency.html" class="card">
+      <div class="title">SDK 一致性 <span class="tag completeness">V1 旧版</span></div>
+      <div class="meta">2026-07-24 · consistency 插件（已升级至 completeness）</div>
+    </a>
+  </div>
+</body>
+</html>
