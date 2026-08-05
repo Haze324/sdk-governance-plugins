@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>三方库更新检测报告 — 2026-08-05</title>
+  <style>
+    :root {
+      --bg: #ffffff; --text: #1a1a2e; --text-secondary: #6b7280;
+      --border: #e5e7eb; --card-bg: #f9fafb;
+      --critical: #dc2626; --critical-bg: #fef2f2;
+      --warning: #d97706; --warning-bg: #fffbeb;
+      --info: #2563eb; --info-bg: #eff6ff;
+      --success: #16a34a; --success-bg: #f0fdf4;
+      --radius: 8px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text); background: var(--bg); line-height: 1.6;
+      max-width: 960px; margin: 0 auto; padding: 32px 24px;
+    }
+    .header { border-bottom: 2px solid var(--border); padding-bottom: 24px; margin-bottom: 32px; }
+    .header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+    .header .meta { font-size: 14px; color: var(--text-secondary); }
+    .mode-banner { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; margin-left: 12px; }
+    .mode-banner.llm { background: #dcfce7; color: #16a34a; }
+    .mode-banner.deterministic { background: #fef3c7; color: #d97706; }
+    .cards { display: flex; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+    .card { flex: 1; min-width: 120px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; text-align: center; }
+    .card .label { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+    .card .value { font-size: 32px; font-weight: 700; }
+    .card.critical .value { color: var(--critical); }
+    .card.warning .value { color: var(--warning); }
+    .card.info .value { color: var(--info); }
+    .card.success .value { color: var(--success); }
+    .direction-bar { display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+    .direction-tag { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); }
+    .direction-tag.active { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+    .filters { display: flex; gap: 8px; margin-bottom: 24px; align-items: center; }
+    .filters input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; }
+    .filter-btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); font-size: 13px; cursor: pointer; transition: all 0.15s; }
+    .filter-btn:hover { background: #f3f4f6; }
+    .filter-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+    .section-title { font-size: 16px; font-weight: 600; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .finding { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+    .finding-header { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; gap: 12px; }
+    .finding-header:hover { background: var(--card-bg); }
+    .severity-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
+    .severity-badge.critical { background: var(--critical-bg); color: var(--critical); }
+    .severity-badge.warning { background: var(--warning-bg); color: var(--warning); }
+    .severity-badge.info { background: var(--info-bg); color: var(--info); }
+    .finding-title { flex: 1; font-size: 14px; font-weight: 500; }
+    .finding-module { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+    .finding-body { display: none; padding: 0 16px 16px; font-size: 14px; border-top: 1px solid var(--border); }
+    .finding.open .finding-body { display: block; }
+    .finding-body .row { margin-top: 8px; }
+    .finding-body .row .label { font-size: 12px; color: var(--text-secondary); }
+    .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); }
+    .footer a { color: var(--info); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>三方库更新检测报告 <span class="mode-banner deterministic">确定性模式</span></h1>
+    <div class="meta">
+      扫描时间：2026-08-05T09:00:00Z &nbsp;|&nbsp;
+      仓库：Haze324/sdk-governance-plugins &nbsp;|&nbsp;
+      Issue：<a href="https://github.com/Haze324/sdk-governance-plugins/issues/3">#3</a>
+    </div>
+  </div>
+
+  <div class="direction-bar">
+    <span class="direction-tag active">① OS 升级检测</span>
+    <span class="direction-tag active">② 框架升级检测</span>
+    <span class="direction-tag active">③ 上游版本检测</span>
+  </div>
+
+  <div class="cards">
+    <div class="card info"><div class="label">SDK 总数</div><div class="value">15</div></div>
+    <div class="card warning"><div class="label">版本落后</div><div class="value">4</div></div>
+    <div class="card critical"><div class="label">兼容性问题</div><div class="value">2</div></div>
+    <div class="card critical"><div class="label">安全漏洞</div><div class="value">1</div></div>
+    <div class="card success"><div class="label">已是最新</div><div class="value">9</div></div>
+    <div class="card warning"><div class="label">不可达</div><div class="value">1</div></div>
+  </div>
+
+  <div class="filters">
+    <input type="text" id="searchInput" placeholder="搜索 SDK 或关键词..." oninput="filterFindings()">
+    <button class="filter-btn active" onclick="setFilter('all')" id="btn-all">全部</button>
+    <button class="filter-btn" onclick="setFilter('critical')" id="btn-critical">严重</button>
+    <button class="filter-btn" onclick="setFilter('warning')" id="btn-warning">警告</button>
+    <button class="filter-btn" onclick="setFilter('info')" id="btn-info">提示</button>
+  </div>
+
+  <div id="findings-container">
+
+    <!-- ====== 严重 ====== -->
+    <div class="section-title">严重（3 项）</div>
+
+    <div class="finding open" data-severity="critical">
+      <div class="finding-header">
+        <span class="severity-badge critical">严重</span>
+        <span class="finding-title">pay-sdk — 跨大版本升级（1.6.0 → 3.0.0）</span>
+        <span class="finding-module">① 框架升级</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">详情：</span>SDK pay-sdk 声明版本范围 ^1.6.0，最新版本 3.0.0 跨了两个大版本，含 breaking changes：<br>
+        · pay() 方法从 callback 模式改为 Promise 模式<br>
+        · paySync() 方法被移除<br>
+        · PaymentRequest 构造参数新增必需字段 currency</div>
+        <div class="row"><span class="label">影响：</span>所有调用 pay() 和 paySync() 的代码需要重写，升级可能导致编译错误和运行时崩溃</div>
+        <div class="row"><span class="label">建议：</span>逐步升级，先升到 2.x 最新版验证，再升到 3.0.0</div>
+        <div class="row"><span class="label">置信度：</span>0.85（LLM分析）</div>
+      </div>
+    </div>
+
+    <div class="finding" data-severity="critical">
+      <div class="finding-header">
+        <span class="severity-badge critical">严重</span>
+        <span class="finding-title">map-sdk — 最低平台版本不兼容</span>
+        <span class="finding-module">① OS 升级</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">详情：</span>map-sdk v2.2.0 依赖 @kit.CoreLocation（API 12 新增），当前项目目标为 API 11，直接升级会导致 API 11 设备上不可用</div>
+        <div class="row"><span class="label">影响：</span>在 HarmonyOS 4.x 设备上 map-sdk 无法正常加载，地图功能完全不可用</div>
+        <div class="row"><span class="label">建议：</span>等待项目迁移到 API 12 后再升级，或联系 SDK 方确认是否提供 API 11 兼容版本</div>
+        <div class="row"><span class="label">置信度：</span>0.92（LLM分析）</div>
+      </div>
+    </div>
+
+    <div class="finding" data-severity="critical">
+      <div class="finding-header">
+        <span class="severity-badge critical">严重</span>
+        <span class="finding-title">auth-sdk — 安全漏洞 CVE-2024-8921</span>
+        <span class="finding-module">③ 上游版本</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">详情：</span>auth-sdk v1.2.0 存在 CVE-2024-8921：Token 刷新接口存在中间人攻击风险，攻击者可窃取 access_token</div>
+        <div class="row"><span class="label">影响：</span>严重安全漏洞，CVSS 9.1，无需用户交互即可利用</div>
+        <div class="row"><span class="label">建议：</span>立即升级到 auth-sdk v1.3.2+（已修复），本次升级即使跨大版本也建议优先执行</div>
+        <div class="row"><span class="label">数据来源：</span>华为云漏洞库</div>
+      </div>
+    </div>
+
+    <!-- ====== 警告 ====== -->
+    <div class="section-title">警告（4 项）</div>
+
+    <div class="finding" data-severity="warning">
+      <div class="finding-header">
+        <span class="severity-badge warning">警告</span>
+        <span class="finding-title">auth-sdk — 版本落后（1.2.0 → 1.3.2）</span>
+        <span class="finding-module">③ 上游版本</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">详情：</span>当前 1.2.0 → 最新 1.3.2（跨大版本，含 breaking changes）</div>
+        <div class="row"><span class="label">建议：</span>逐步升级，每步验证后再继续</div>
+      </div>
+    </div>
+
+    <div class="finding" data-severity="warning">
+      <div class="finding-header">
+        <span class="severity-badge warning">警告</span>
+        <span class="finding-title">storage-sdk — 版本落后（3.0.1 → 4.0.0）</span>
+        <span class="finding-module">③ 上游版本</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">详情：</span>当前 3.0.1 → 最新 4.0.0（跨大版本，含 breaking changes）</div>
+        <div class="row"><span class="label">建议：</span>逐步升级，每步验证后再继续</div>
+      </div>
+    </div>
+
+    <div class="finding" data-severity="warning">
+      <div class="finding-header">
+        <span class="severity-badge warning">警告</span>
+        <span class="finding-title">network-sdk — 版本落后（2.1.0 → 2.2.0）</span>
+        <span class="finding-module">③ 上游版本</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">详情：</span>当前 2.1.0 → 最新 2.2.0（向后兼容）</div>
+        <div class="row"><span class="label">建议：</span>建议升级</div>
+      </div>
+    </div>
+
+    <div class="finding" data-severity="warning">
+      <div class="finding-header">
+        <span class="severity-badge warning">警告</span>
+        <span class="finding-title">log-sdk — 版本落后（2.0.0 → 2.1.1）</span>
+        <span class="finding-module">③ 上游版本</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">详情：</span>当前 2.0.0 → 最新 2.1.1（补丁版本，向后兼容）</div>
+        <div class="row"><span class="label">建议：</span>建议升级</div>
+      </div>
+    </div>
+
+    <!-- ====== 提示 ====== -->
+    <div class="section-title">提示（11 项）</div>
+
+    <div class="finding" data-severity="info">
+      <div class="finding-header">
+        <span class="severity-badge info">提示</span>
+        <span class="finding-title">ui-sdk — 已是最新（3.2.0）</span>
+        <span class="finding-module">entry</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">SDK 名称：</span>ui-sdk</div>
+        <div class="row"><span class="label">当前版本：</span>3.2.0</div>
+        <div class="row"><span class="label">状态：</span>✅ 已是最新</div>
+      </div>
+    </div>
+
+    <div class="finding" data-severity="info">
+      <div class="finding-header">
+        <span class="severity-badge info">提示</span>
+        <span class="finding-title">image-sdk — 已是最新（1.5.0）</span>
+        <span class="finding-module">entry</span>
+      </div>
+      <div class="finding-body"><div class="row"><span class="label">当前版本：</span>1.5.0</div><div class="row"><span class="label">状态：</span>✅ 已是最新</div></div>
+    </div>
+
+    <div class="finding" data-severity="info">
+      <div class="finding-header">
+        <span class="severity-badge info">提示</span>
+        <span class="finding-title">push-sdk — 已是最新（2.0.0）</span>
+        <span class="finding-module">entry</span>
+      </div>
+      <div class="finding-body"><div class="row"><span class="label">当前版本：</span>2.0.0</div><div class="row"><span class="label">状态：</span>✅ 已是最新</div></div>
+    </div>
+
+    <div class="finding" data-severity="info">
+      <div class="finding-header">
+        <span class="severity-badge info">提示</span>
+        <span class="finding-title">analytics-sdk — 已是最新（4.1.0）</span>
+        <span class="finding-module">entry</span>
+      </div>
+      <div class="finding-body"><div class="row"><span class="label">当前版本：</span>4.1.0</div><div class="row"><span class="label">状态：</span>✅ 已是最新</div></div>
+    </div>
+
+    <div class="finding" data-severity="info">
+      <div class="finding-header">
+        <span class="severity-badge info">提示</span>
+        <span class="finding-title">location-sdk — 已是最新（1.0.3）</span>
+        <span class="finding-module">entry</span>
+      </div>
+      <div class="finding-body"><div class="row"><span class="label">当前版本：</span>1.0.3</div><div class="row"><span class="label">状态：</span>✅ 已是最新</div></div>
+    </div>
+
+    <div class="finding" data-severity="info">
+      <div class="finding-header">
+        <span class="severity-badge info">提示</span>
+        <span class="finding-title">crash-sdk — 已是最新（5.0.0）</span>
+        <span class="finding-module">entry</span>
+      </div>
+      <div class="finding-body"><div class="row"><span class="label">当前版本：</span>5.0.0</div><div class="row"><span class="label">状态：</span>✅ 已是最新</div></div>
+    </div>
+
+    <div class="finding" data-severity="info">
+      <div class="finding-header">
+        <span class="severity-badge info">提示</span>
+        <span class="finding-title">database-sdk — 已是最新（2.3.0）</span>
+        <span class="finding-module">entry</span>
+      </div>
+      <div class="finding-body"><div class="row"><span class="label">当前版本：</span>2.3.0</div><div class="row"><span class="label">状态：</span>✅ 已是最新</div></div>
+    </div>
+
+    <div class="finding" data-severity="info">
+      <div class="finding-header">
+        <span class="severity-badge info">提示</span>
+        <span class="finding-title">cache-sdk — 已是最新（1.8.0）</span>
+        <span class="finding-module">entry</span>
+      </div>
+      <div class="finding-body"><div class="row"><span class="label">当前版本：</span>1.8.0</div><div class="row"><span class="label">状态：</span>✅ 已是最新</div></div>
+    </div>
+
+    <div class="finding" data-severity="info">
+      <div class="finding-header">
+        <span class="severity-badge info">提示</span>
+        <span class="finding-title">crypto-sdk — 已是最新（3.0.0）</span>
+        <span class="finding-module">entry</span>
+      </div>
+      <div class="finding-body"><div class="row"><span class="label">当前版本：</span>3.0.0</div><div class="row"><span class="label">状态：</span>✅ 已是最新</div></div>
+    </div>
+
+    <div class="finding" data-severity="info">
+      <div class="finding-header">
+        <span class="severity-badge info">提示</span>
+        <span class="finding-title">mqtt-sdk — 已是最新（0.9.2）</span>
+        <span class="finding-module">library</span>
+      </div>
+      <div class="finding-body"><div class="row"><span class="label">当前版本：</span>0.9.2</div><div class="row"><span class="label">状态：</span>✅ 已是最新</div></div>
+    </div>
+
+    <div class="finding" data-severity="info">
+      <div class="finding-header">
+        <span class="severity-badge info">提示</span>
+        <span class="finding-title">internal-test-sdk — registry 不可达</span>
+        <span class="finding-module">—</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">详情：</span>registry 不可达，无法查询最新版本</div>
+        <div class="row"><span class="label">建议：</span>检查 registry 连接和认证配置</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    由 SDK 治理插件 v2.0 自动生成 &nbsp;|&nbsp;
+    <a href="https://github.com/Haze324/sdk-governance-plugins/issues/3">查看 GitHub Issue #3</a>
+  </div>
+
+  <script>
+    let activeFilter='all';
+    function setFilter(f){activeFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));document.getElementById('btn-'+f).classList.add('active');filterFindings();}
+    function filterFindings(){var q=document.getElementById('searchInput').value.toLowerCase();document.querySelectorAll('.finding').forEach(el=>{var t=el.textContent.toLowerCase(),s=el.dataset.severity;el.style.display=(!q||t.includes(q))&&(activeFilter==='all'||s===activeFilter)?'':'none';});}
+    document.querySelectorAll('.finding-header').forEach(h=>h.addEventListener('click',()=>h.parentElement.classList.toggle('open')));
+  </script>
+</body>
+</html>

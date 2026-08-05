@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>三方库完整性检测报告 — 2026-08-05</title>
+  <style>
+    :root {
+      --bg: #ffffff; --text: #1a1a2e; --text-secondary: #6b7280;
+      --border: #e5e7eb; --card-bg: #f9fafb;
+      --critical: #dc2626; --critical-bg: #fef2f2;
+      --warning: #d97706; --warning-bg: #fffbeb;
+      --info: #2563eb; --info-bg: #eff6ff;
+      --success: #16a34a; --success-bg: #f0fdf4;
+      --radius: 8px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text); background: var(--bg); line-height: 1.6;
+      max-width: 960px; margin: 0 auto; padding: 32px 24px;
+    }
+    .header { border-bottom: 2px solid var(--border); padding-bottom: 24px; margin-bottom: 32px; }
+    .header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+    .header .meta { font-size: 14px; color: var(--text-secondary); }
+    .cards { display: flex; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+    .card { flex: 1; min-width: 120px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; text-align: center; }
+    .card .label { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+    .card .value { font-size: 32px; font-weight: 700; }
+    .card.critical .value { color: var(--critical); }
+    .card.warning .value { color: var(--warning); }
+    .card.info .value { color: var(--info); }
+    .card.success .value { color: var(--success); }
+    .filters { display: flex; gap: 8px; margin-bottom: 24px; align-items: center; }
+    .filters input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; }
+    .filter-btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); font-size: 13px; cursor: pointer; transition: all 0.15s; }
+    .filter-btn:hover { background: #f3f4f6; }
+    .filter-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+    .section-title { font-size: 16px; font-weight: 600; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .finding { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+    .finding-header { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; gap: 12px; }
+    .finding-header:hover { background: var(--card-bg); }
+    .severity-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
+    .severity-badge.critical { background: var(--critical-bg); color: var(--critical); }
+    .severity-badge.warning { background: var(--warning-bg); color: var(--warning); }
+    .severity-badge.info { background: var(--info-bg); color: var(--info); }
+    .finding-title { flex: 1; font-size: 14px; font-weight: 500; }
+    .finding-module { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+    .finding-body { display: none; padding: 0 16px 16px; font-size: 14px; border-top: 1px solid var(--border); }
+    .finding.open .finding-body { display: block; }
+    .finding-body .row { margin-top: 8px; }
+    .finding-body .row .label { font-size: 12px; color: var(--text-secondary); }
+    .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); }
+    .footer a { color: var(--info); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>三方库完整性检测报告</h1>
+    <div class="meta">
+      扫描时间：2026-08-05T10:00:00Z &nbsp;|&nbsp;
+      仓库：Haze324/sdk-governance-plugins &nbsp;|&nbsp;
+      上游：pay-sdk v2.0.0（Android）→ 鸿蒙：@ohos/pay-sdk v1.0.0
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card info"><div class="label">问题总数</div><div class="value">5</div></div>
+    <div class="card critical"><div class="label">功能缺失</div><div class="value">3</div></div>
+    <div class="card critical"><div class="label">Bug 风险</div><div class="value">2</div></div>
+    <div class="card critical"><div class="label">严重</div><div class="value">2</div></div>
+    <div class="card warning"><div class="label">高风险</div><div class="value">2</div></div>
+  </div>
+
+  <div class="filters">
+    <input type="text" id="searchInput" placeholder="搜索类名、方法名或关键词..." oninput="filterFindings()">
+    <button class="filter-btn active" onclick="setFilter('all')" id="btn-all">全部</button>
+    <button class="filter-btn" onclick="setFilter('critical')" id="btn-critical">严重</button>
+    <button class="filter-btn" onclick="setFilter('warning')" id="btn-warning">警告</button>
+    <button class="filter-btn" onclick="setFilter('info')" id="btn-info">提示</button>
+  </div>
+
+  <div id="findings-container">
+
+    <!-- ====== 严重 ====== -->
+    <div class="section-title">严重（2 项）</div>
+
+    <div class="finding open" data-severity="critical">
+      <div class="finding-header">
+        <span class="severity-badge critical">严重</span>
+        <span class="finding-title">RefundClient — 整类缺失</span>
+        <span class="finding-module">功能缺失</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">SDK：</span>pay-sdk</div>
+        <div class="row"><span class="label">详情：</span>上游 SDK 中存在类 RefundClient（class），鸿蒙包中未找到对应实现。RefundClient 是退款功能的核心入口类，缺失意味着鸿蒙包完全无法处理退款业务。</div>
+        <div class="row"><span class="label">所属模块：</span>支付模块</div>
+        <div class="row"><span class="label">重要程度：</span>严重（入口方法 + 核心业务）</div>
+        <div class="row"><span class="label">建议：</span>补充实现该类及相关方法。RefundClient 依赖 PaymentManager 和 RefundCallback，需一起实现。</div>
+      </div>
+    </div>
+
+    <div class="finding" data-severity="critical">
+      <div class="finding-header">
+        <span class="severity-badge critical">严重</span>
+        <span class="finding-title">PaymentManager.cancelPayment() — 方法缺失</span>
+        <span class="finding-module">功能缺失</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">SDK：</span>pay-sdk</div>
+        <div class="row"><span class="label">详情：</span>上游类 PaymentManager 中存在方法 cancelPayment(String orderId, CancelCallback callback): void，鸿蒙包中未找到。该方法用于取消进行中的支付，是支付流程的关键环节。</div>
+        <div class="row"><span class="label">上游签名：</span>cancelPayment(String, CancelCallback): void</div>
+        <div class="row"><span class="label">重要程度：</span>严重（支付核心流程）</div>
+        <div class="row"><span class="label">建议：</span>在鸿蒙包中补充对应方法，注意鸿蒙侧使用 Promise 替代 Callback</div>
+      </div>
+    </div>
+
+    <!-- ====== 警告 ====== -->
+    <div class="section-title">高风险（2 项）</div>
+
+    <div class="finding" data-severity="warning">
+      <div class="finding-header">
+        <span class="severity-badge warning">高风险</span>
+        <span class="finding-title">pay() — 签名变更：回调模式 → Promise</span>
+        <span class="finding-module">Bug风险 · 签名变更</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">位置：</span>PaymentClient.pay</div>
+        <div class="row"><span class="label">详情：</span>方法 pay 签名变更 · request: PayRequest → PayRequest · callback: PayCallback → Promise&lt;PayResult&gt; · 返回值: void → Promise&lt;PayResult&gt;</div>
+        <div class="row"><span class="label">影响：</span>上游同步回调模式改为鸿蒙异步 Promise 模式。多线程场景下，如果调用方在回调中依赖了线程上下文（如 UI 线程更新），改为 Promise 后可能出现时序问题。</div>
+        <div class="row"><span class="label">建议：</span>检查所有调用 pay() 的代码，确认回调中的线程依赖逻辑已适配异步模式。</div>
+      </div>
+    </div>
+
+    <div class="finding" data-severity="warning">
+      <div class="finding-header">
+        <span class="severity-badge warning">高风险</span>
+        <span class="finding-title">init() → initialize() — 方法重命名 + 参数去 Context</span>
+        <span class="finding-module">Bug风险 · 签名变更</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">位置：</span>PaymentClient.initialize</div>
+        <div class="row"><span class="label">详情：</span>上游 init(Context, Config) 映射为鸿蒙 initialize(config: Config): void。Context 参数被省略——鸿蒙不需要显式传递 Context，但如果上游 init() 中使用了 Context 做权限检查或资源加载，鸿蒙侧需要确保等效逻辑已实现。</div>
+        <div class="row"><span class="label">影响：</span>如果初始化逻辑中存在隐藏的 Context 依赖（如读取 Application 配置），鸿蒙侧可能遗漏。</div>
+        <div class="row"><span class="label">建议：</span>审查鸿蒙 initialize() 的实现，确认所有 Context 相关的初始化步骤已在 ArkTS 侧有等价处理。</div>
+      </div>
+    </div>
+
+    <!-- ====== 提示 ====== -->
+    <div class="section-title">中风险（1 项）</div>
+
+    <div class="finding" data-severity="info">
+      <div class="finding-header">
+        <span class="severity-badge info">中风险</span>
+        <span class="finding-title">getPaymentStatus() — 方法缺失（内部辅助）</span>
+        <span class="finding-module">功能缺失</span>
+      </div>
+      <div class="finding-body">
+        <div class="row"><span class="label">SDK：</span>pay-sdk</div>
+        <div class="row"><span class="label">详情：</span>上游类 PaymentManager 中存在方法 getPaymentStatus(String orderId): PaymentStatus，鸿蒙包中未找到。该方法用于查询支付状态，不是核心流程但特定场景下会用到。</div>
+        <div class="row"><span class="label">建议：</span>如果业务场景涉及支付状态轮询，建议补充。</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    由 SDK 治理插件 v2.0 自动生成 &nbsp;|&nbsp;
+    <a href="https://github.com/Haze324/sdk-governance-plugins/issues/4">查看 GitHub Issue #4</a>
+  </div>
+
+  <script>
+    let activeFilter='all';
+    function setFilter(f){activeFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));document.getElementById('btn-'+f).classList.add('active');filterFindings();}
+    function filterFindings(){var q=document.getElementById('searchInput').value.toLowerCase();document.querySelectorAll('.finding').forEach(el=>{var t=el.textContent.toLowerCase(),s=el.dataset.severity;el.style.display=(!q||t.includes(q))&&(activeFilter==='all'||s===activeFilter)?'':'none';});}
+    document.querySelectorAll('.finding-header').forEach(h=>h.addEventListener('click',()=>h.parentElement.classList.toggle('open')));
+  </script>
+</body>
+</html>
