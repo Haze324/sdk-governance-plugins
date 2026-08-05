@@ -1,20 +1,24 @@
-name: SDK 一致性检测（上游对比）
+name: 三方库更新检测
 on:
   schedule:
-    - cron: '0 10 * * 1'        # 每周一早 10:00 自动检测
-  workflow_dispatch:              # Actions tab 手动触发
-  issue_comment:                  # Issue 评论触发
+    - cron: '0 9 * * 1'        # 每周一早 9:00 自动检测
+  workflow_dispatch:             # Actions tab 手动触发
+  issue_comment:                 # Issue 评论触发
     types: [created]
 
 # issue_comment 事件的 GITHUB_TOKEN 默认为只读，需要显式声明写入权限
-# 否则 peaceiris/actions-gh-pages 无法推送 gh-pages 分支
 permissions:
   contents: write
 
 jobs:
-  sdk-consistency:
+  sdk-update:
     runs-on: ubuntu-latest
     steps:
+      # ----------------------------------------------------------
+      #  第 1 步：判断是否需要执行 + 提取评论上下文
+      #  用 shell 读取 GitHub event payload JSON 文件，
+      #  只在 issue_comment 事件时才提取评论内容
+      # ----------------------------------------------------------
       - name: 判断触发条件
         id: check
         shell: bash
@@ -22,7 +26,7 @@ jobs:
           EVENT_NAME="${{ github.event_name }}"
 
           if [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "触发方式：$EVENT_NAME → 执行一致性检测"
+            echo "触发方式：$EVENT_NAME → 执行更新检测"
             echo "should_run=true" >> $GITHUB_OUTPUT
             echo "comment_body=" >> $GITHUB_OUTPUT
             echo "issue_url=" >> $GITHUB_OUTPUT
@@ -30,14 +34,13 @@ jobs:
             COMMENT=$(jq -r '.comment.body // ""' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "")
             ISSUE_URL=$(jq -r '.issue.html_url // ""' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "")
 
-            if echo "$COMMENT" | grep -q "/sdk-consistency"; then
-              echo "触发方式：Issue 评论指令 → 执行一致性检测"
+            if echo "$COMMENT" | grep -q "/sdk-update"; then
+              echo "触发方式：Issue 评论指令 → 执行更新检测"
               echo "should_run=true" >> $GITHUB_OUTPUT
             else
-              echo "跳过：评论不含 /sdk-consistency 指令"
+              echo "跳过：评论不含 /sdk-update 指令"
               echo "should_run=false" >> $GITHUB_OUTPUT
             fi
-            # 多行值用 heredoc 安全写入 GITHUB_OUTPUT，避免换行截断
             echo "comment_body<<COMMENT_EOF" >> $GITHUB_OUTPUT
             echo "$COMMENT" >> $GITHUB_OUTPUT
             echo "COMMENT_EOF" >> $GITHUB_OUTPUT
@@ -60,16 +63,17 @@ jobs:
         if: steps.check.outputs.should_run == 'true'
         run: npm install
 
-      - name: 运行 SDK 一致性检测
+      - name: 运行三方库更新检测
         if: steps.check.outputs.should_run == 'true'
-        id: consistency
-        run: npx ts-node src/consistency/main.ts
+        id: update
+        run: npx ts-node src/update/main.ts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_NAME: ${{ github.repository }}
           TRIGGER_SOURCE: ${{ github.event_name }}
           COMMENT_BODY: ${{ steps.check.outputs.comment_body }}
           COMMENT_ISSUE_URL: ${{ steps.check.outputs.issue_url }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
 
       - name: 部署报告到 GitHub Pages
         if: steps.check.outputs.should_run == 'true'

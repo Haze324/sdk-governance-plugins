@@ -8,7 +8,13 @@
 ║       · createIssue — 创建 Issue，打标签                                      ║
 ║       · commentOnIssue — 在 Issue 下评论（指令触发回复）                        ║
 ║       · closePreviousIssue — 关闭上次还开着的同类型 Issue                       ║
+║       · closeIssueIfNoProblems — 无问题时关闭旧的 Issue                        ║
 ║       · buildPagesReport — 生成 HTML 报告页面，部署到 GitHub Pages             ║
+║                                                                              ║
+║     输出规则（V3.0）：                                                          ║
+║       · Action Summary — 每次都有                                              ║
+║       · Report Page    — 每次都有                                              ║
+║       · Issue          — 只在有兼容性问题或安全漏洞时创建                         ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 */
@@ -54,7 +60,6 @@ export async function createIssue(
 
 // ============================================================
 //  [对外接口] commentOnIssue — 在指定 Issue 下评论
-//  当通过 Issue 评论触发时，在原 Issue 下回复确认
 // ============================================================
 export async function commentOnIssue(
   issueUrl: string,
@@ -63,8 +68,6 @@ export async function commentOnIssue(
   const token = process.env.GITHUB_TOKEN;
   if (!token || !issueUrl) return;
 
-  // 从 issueUrl 中提取 owner/repo 和 issue number
-  // 格式：https://github.com/Haze324/sdk-governance-plugins/issues/1
   const match = issueUrl.match(/github\.com\/(.+?)\/(.+?)\/issues\/(\d+)/);
   if (!match) {
     console.warn('[Issue管理] 无法解析 Issue URL:', issueUrl);
@@ -95,7 +98,6 @@ export async function commentOnIssue(
 
 // ============================================================
 //  [对外接口] closePreviousIssue — 关闭上次同类型还开着的 Issue
-//  防止同一类型的问题积累多个 Issue
 // ============================================================
 export async function closePreviousIssue(issuePrefix: string, label?: string): Promise<void> {
   const token = process.env.GITHUB_TOKEN;
@@ -103,8 +105,7 @@ export async function closePreviousIssue(issuePrefix: string, label?: string): P
 
   if (!token || !repo) return;
 
-  // 根据前缀决定 label：SDK巡检 → sdk-inspect，SDK一致性 → sdk-consistency
-  const labelsFilter = label || (issuePrefix === 'SDK一致性' ? 'sdk-consistency' : 'sdk-inspect');
+  const labelsFilter = label || (issuePrefix === '三方库完整性' ? 'sdk-completeness' : 'sdk-update');
 
   try {
     const response = await fetch(
@@ -141,6 +142,75 @@ export async function closePreviousIssue(issuePrefix: string, label?: string): P
 }
 
 // ============================================================
+//  [对外接口] closeIssueIfNoProblems — 无兼容性问题时关闭旧 Issue
+//  V3.0 新增：Issue 只在有问题时创建，无则关旧的
+// ============================================================
+export async function closeIssueIfNoProblems(
+  issuePrefix: string,
+  label: string,
+  hasCompatibilityIssue: boolean,
+  hasSecurityVulnerability: boolean
+): Promise<void> {
+  const hasProblems = hasCompatibilityIssue || hasSecurityVulnerability;
+
+  if (!hasProblems) {
+    console.log(`[Issue管理] 未发现需要关注的兼容性问题或安全漏洞，检查是否需要关闭旧 Issue...`);
+    const token = process.env.GITHUB_TOKEN;
+    const repo = process.env.REPO_NAME || process.env.GITHUB_REPOSITORY;
+
+    if (!token || !repo) return;
+
+    try {
+      const response = await fetch(
+        `https://api.github.com/repos/${repo}/issues?state=open&labels=${label}&per_page=100`,
+        {
+          headers: {
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json',
+          },
+        }
+      );
+
+      const issues = await response.json() as Array<{ number: number; title: string }>;
+
+      for (const issue of issues) {
+        if (issue.title.startsWith(`[${issuePrefix}]`)) {
+          // 先评论再关闭，说明本次无问题
+          await fetch(
+            `https://api.github.com/repos/${repo}/issues/${issue.number}/comments`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `token ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                body: `✅ 本次扫描（${new Date().toISOString().slice(0, 10)}）未发现兼容性问题或安全漏洞，自动关闭此 Issue。`,
+              }),
+            }
+          );
+
+          await fetch(`https://api.github.com/repos/${repo}/issues/${issue.number}`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `token ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              state: 'closed',
+              state_reason: 'completed',
+            }),
+          });
+          console.log(`[Issue管理] 无问题，已关闭上次 ${issuePrefix} Issue: #${issue.number}`);
+        }
+      }
+    } catch (err) {
+      console.error('[Issue管理] 关闭旧 Issue 失败:', err);
+    }
+  }
+}
+
+// ============================================================
 //  [对外接口] buildPagesReport — 生成 HTML 报告页面
 //  输出到 docs/reports/ 目录，由 GitHub Pages 部署
 // ============================================================
@@ -163,6 +233,69 @@ export async function buildPagesReport(
 }
 
 // ============================================================
+//  [对外接口] writeActionSummary — 写入 GitHub Actions Step Summary
+//  每次运行都生成，不管有没有问题
+// ============================================================
+export async function writeActionSummary(
+  title: string,
+  summary: Record<string, unknown>,
+  findings: unknown[],
+  reportUrl: string,
+  issueUrl: string,
+  hasCompatibilityIssue: boolean,
+  hasSecurityVulnerability: boolean
+): Promise<void> {
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+  if (!summaryPath) {
+    console.log(`[Action摘要] ${title}`);
+    console.log(`  SDK 总数: ${summary['totalSDKs'] || summary['missingCount'] || 'N/A'}`);
+    console.log(`  问题: ${findings.length} 项`);
+    console.log(`  报告: ${reportUrl}`);
+    return;
+  }
+
+  const mode = process.env.LLM_API_KEY ? 'LLM增强' : '确定性';
+  const parts = [
+    `## ${title}`,
+    '',
+    `**扫描时间**：${summary['timestamp'] || new Date().toISOString()}  `,
+    `**运行模式**：${mode}`,
+    '',
+  ];
+
+  if (summary['totalSDKs'] !== undefined) {
+    parts.push(`| 指标 | 数值 |`);
+    parts.push(`|------|------|`);
+    parts.push(`| SDK 总数 | ${summary['totalSDKs']} |`);
+    if (summary['outdatedCount'] !== undefined) parts.push(`| 版本落后 | ${summary['outdatedCount']} |`);
+    if (summary['compatIssueCount'] !== undefined) parts.push(`| 兼容性问题 | ${summary['compatIssueCount']} |`);
+    if (summary['securityVulnCount'] !== undefined) parts.push(`| 安全漏洞 | ${summary['securityVulnCount']} |`);
+    parts.push('');
+  } else {
+    parts.push(`| 指标 | 数值 |`);
+    parts.push(`|------|------|`);
+    if (summary['missingCount'] !== undefined) parts.push(`| 功能缺失 | ${summary['missingCount']} |`);
+    if (summary['bugRiskCount'] !== undefined) parts.push(`| Bug 风险 | ${summary['bugRiskCount']} |`);
+    parts.push('');
+  }
+
+  if (hasCompatibilityIssue || hasSecurityVulnerability) {
+    parts.push(`### ⚠️ 发现问题 → 已创建 Issue`);
+    parts.push(`- Issue: ${issueUrl}`);
+  } else {
+    parts.push(`### ✅ 未发现需要关注的问题`);
+    parts.push(`- 本次扫描未发现兼容性问题或安全漏洞`);
+  }
+
+  parts.push('');
+  parts.push(`📋 [完整报告](${reportUrl})`);
+  parts.push('');
+
+  writeFileSync(summaryPath, parts.join('\n'), 'utf-8');
+  console.log('[Action摘要] 已写入 GITHUB_STEP_SUMMARY');
+}
+
+// ============================================================
 //  [核心] generateReportHTML — 生成完整 HTML 报告页面
 // ============================================================
 function generateReportHTML(
@@ -171,7 +304,13 @@ function generateReportHTML(
   issueUrl: string,
   plugin: string
 ): string {
-  const title = plugin === 'inspect' ? 'SDK 巡检报告' : 'SDK 一致性检测报告';
+  const titleMap: Record<string, string> = {
+    'update': '三方库更新检测报告',
+    'completeness': '三方库完整性检测报告',
+    'inspect': 'SDK 巡检报告',
+    'consistency': 'SDK 一致性检测报告',
+  };
+  const title = titleMap[plugin] || 'SDK 治理报告';
   const summary = data as Record<string, unknown>;
 
   return `<!DOCTYPE html>
@@ -250,7 +389,7 @@ function generateReportHTML(
   </div>
   <div id="findings-container">${renderFindingsHTML(findings)}</div>
   <div class="footer">
-    由 SDK 治理插件 v1.0 自动生成 &nbsp;|&nbsp;
+    由 SDK 治理插件 v2.0 自动生成 &nbsp;|&nbsp;
     ${issueUrl ? `<a href="${issueUrl}">查看 GitHub Issue</a>` : ''}
   </div>
   <script>

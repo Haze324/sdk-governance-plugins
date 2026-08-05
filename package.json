@@ -1,11 +1,11 @@
 {
   "name": "sdk-governance-plugins",
-  "version": "1.0.0",
-  "description": "鸿蒙三方库 SDK 巡检版本审计 + 上游一致性检测 — GitHub Actions 参考实例",
+  "version": "2.0.0",
+  "description": "鸿蒙三方库更新检测 + 三方库完整性检测 — GitHub Actions 参考实例",
   "main": "index.js",
   "scripts": {
-    "inspect": "ts-node src/inspect/main.ts",
-    "consistency": "ts-node src/consistency/main.ts",
+    "update": "ts-node src/update/main.ts",
+    "completeness": "ts-node src/completeness/main.ts",
     "build": "tsc"
   },
   "dependencies": {
@@ -19,6 +19,6 @@
     "ts-node": "^10.9.0",
     "typescript": "^5.3.0"
   },
-  "keywords": ["harmonyos", "ohpm", "sdk", "governance", "github-actions"],
+  "keywords": ["harmonyos", "ohpm", "sdk", "governance", "github-actions", "update-detection", "completeness"],
   "license": "MIT"
 }

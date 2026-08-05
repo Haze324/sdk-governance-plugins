@@ -4,23 +4,42 @@
 # ============================================================
 
 # ----------------------------------------------------------
-#  巡检插件配置 — SDK 巡检版本审计
+#  LLM 配置（可选，不配走确定性模式）
+#  API Key 通过 GitHub Secrets 注入环境变量，不写在这里
+#  详见 README → LLM 配置指南
 # ----------------------------------------------------------
-inspect:
-  # 定时巡检 cron 表达式（GitHub Actions schedule 语法）
+llm:
+  provider: ""                           # openai | anthropic | custom
+  endpoint: ""                           # 可选，自部署/代理地址
+  model: "gpt-4o-mini"                   # 推荐
+
+# ----------------------------------------------------------
+#  三方库更新检测
+# ----------------------------------------------------------
+update:
+  # 定时检测 cron 表达式（GitHub Actions schedule 语法）
   cron: "0 9 * * 1"
 
   # 私有 ohpm registry 地址（不填走开源 registry）
   registry: ""
 
-  # 排除的 SDK 列表，巡检跳过这些 SDK
+  # 排除的 SDK 列表，检测跳过这些 SDK
   exclude:
     - internal-test-sdk
 
+  # 检测方向开关
+  directions:
+    # ① OS 升级检测：OS API 变化时检测下游 SDK 兼容性
+    os: true
+    # ② 框架升级检测：框架版本变化时检测 API 兼容性
+    framework: true
+    # ③ 上游版本检测：版本号对比、下载量、安全漏洞、Changelog
+    upstream: true
+
 # ----------------------------------------------------------
-#  一致性插件配置 — 上游 vs 鸿蒙对比
+#  三方库完整性检测
 # ----------------------------------------------------------
-consistency:
+completeness:
   # 上游安卓 SDK 数据来源
   sources:
     - sdk: "pay-sdk"
