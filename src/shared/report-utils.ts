@@ -93,24 +93,24 @@ export async function closePreviousIssue(issuePrefix: string, label?: string): P
   const labelsFilter = label || (issuePrefix === '三方库完整性' ? 'sdk-completeness' : 'sdk-update');
 
   try {
-    // 查询当前标签下的 open Issues
-    const listResult = execSync(
-      `gh issue list --repo ${repo} --state open --label "${labelsFilter}" --json number,title --jq '.[] | "\(.number)|\(.title)"'`,
+    // 查询当前标签下的 open Issues（用 --json 输出，Node.js 解析）
+    const jsonResult = execSync(
+      `gh issue list --repo ${repo} --state open --label "${labelsFilter}" --json number,title --limit 100`,
       { encoding: 'utf-8', timeout: 15000 }
     ).trim();
 
-    if (!listResult) {
+    if (!jsonResult || jsonResult === '[]') {
       console.log(`[Issue管理] 没有找到带标签 "${labelsFilter}" 的 open Issue`);
       return;
     }
 
-    for (const line of listResult.split('\n')) {
-      const [num, title] = line.split('|');
-      if (title && title.startsWith(`[${issuePrefix}]`)) {
-        execSync(`gh issue close ${num} --repo ${repo} --reason completed`, {
+    const issues: Array<{ number: number; title: string }> = JSON.parse(jsonResult);
+    for (const issue of issues) {
+      if (issue.title.startsWith(`[${issuePrefix}]`)) {
+        execSync(`gh issue close ${issue.number} --repo ${repo} --reason completed`, {
           encoding: 'utf-8', timeout: 15000,
         });
-        console.log(`[Issue管理] 已关闭上次 ${issuePrefix} Issue: #${num}`);
+        console.log(`[Issue管理] 已关闭上次 ${issuePrefix} Issue: #${issue.number}`);
       }
     }
   } catch (err: any) {
@@ -139,28 +139,28 @@ export async function closeIssueIfNoProblems(
     if (!repo) return;
 
     try {
-      const listResult = execSync(
-        `gh issue list --repo ${repo} --state open --label "${label}" --json number,title --jq '.[] | "\(.number)|\(.title)"'`,
+      const jsonResult = execSync(
+        `gh issue list --repo ${repo} --state open --label "${label}" --json number,title --limit 100`,
         { encoding: 'utf-8', timeout: 15000 }
       ).trim();
 
-      if (!listResult) {
+      if (!jsonResult || jsonResult === '[]') {
         console.log(`[Issue管理] 没有找到带标签 "${label}" 的 open Issue`);
       } else {
-        for (const line of listResult.split('\n')) {
-          const [num, title] = line.split('|');
-          if (title && title.startsWith(`[${issuePrefix}]`)) {
+        const issues: Array<{ number: number; title: string }> = JSON.parse(jsonResult);
+        for (const issue of issues) {
+          if (issue.title.startsWith(`[${issuePrefix}]`)) {
             // 先评论说明无问题
             const msg = `✅ 本次扫描（${new Date().toISOString().slice(0, 10)}）未发现问题，自动关闭。`;
             const tmpFile = join(process.cwd(), '.close-comment-tmp.md');
             writeFileSync(tmpFile, msg, 'utf-8');
-            execSync(`gh issue comment ${num} --repo ${repo} --body-file "${tmpFile}"`, {
+            execSync(`gh issue comment ${issue.number} --repo ${repo} --body-file "${tmpFile}"`, {
               encoding: 'utf-8', timeout: 15000,
             });
-            execSync(`gh issue close ${num} --repo ${repo} --reason completed`, {
+            execSync(`gh issue close ${issue.number} --repo ${repo} --reason completed`, {
               encoding: 'utf-8', timeout: 15000,
             });
-            console.log(`[Issue管理] 无问题，已关闭 ${issuePrefix} Issue: #${num}`);
+            console.log(`[Issue管理] 无问题，已关闭 ${issuePrefix} Issue: #${issue.number}`);
           }
         }
       }
@@ -189,26 +189,26 @@ async function closeLegacyIssues(issuePrefix: string): Promise<void> {
   if (!legacyLabel) return;
 
   try {
-    const listResult = execSync(
-      `gh issue list --repo ${repo} --state open --label "${legacyLabel}" --json number,title --jq '.[] | "\(.number)|\(.title)"'`,
+    const jsonResult = execSync(
+      `gh issue list --repo ${repo} --state open --label "${legacyLabel}" --json number,title --limit 100`,
       { encoding: 'utf-8', timeout: 15000 }
     ).trim();
 
-    if (!listResult) return;
+    if (!jsonResult || jsonResult === '[]') return;
 
-    for (const line of listResult.split('\n')) {
-      const [num, title] = line.split('|');
-      if (title && title.startsWith(`[SDK${issuePrefix === '三方库更新' ? '巡检' : '一致性'}]`) || title.startsWith(`[${issuePrefix}]`)) {
+    const issues: Array<{ number: number; title: string }> = JSON.parse(jsonResult);
+    for (const issue of issues) {
+      if (issue.title.startsWith(`[SDK${issuePrefix === '三方库更新' ? '巡检' : '一致性'}]`) || issue.title.startsWith(`[${issuePrefix}]`)) {
         const msg = `🔄 新版插件已上线，自动关闭旧格式 Issue。回复 \`/sdk-${issuePrefix === '三方库更新' ? 'update' : 'completeness'}\` 触发新检测。`;
         const tmpFile = join(process.cwd(), '.legacy-close-tmp.md');
         writeFileSync(tmpFile, msg, 'utf-8');
-        execSync(`gh issue comment ${num} --repo ${repo} --body-file "${tmpFile}"`, {
+        execSync(`gh issue comment ${issue.number} --repo ${repo} --body-file "${tmpFile}"`, {
           encoding: 'utf-8', timeout: 15000,
         });
-        execSync(`gh issue close ${num} --repo ${repo} --reason completed`, {
+        execSync(`gh issue close ${issue.number} --repo ${repo} --reason completed`, {
           encoding: 'utf-8', timeout: 15000,
         });
-        console.log(`[Issue管理] 已关闭旧版 Issue: #${num}`);
+        console.log(`[Issue管理] 已关闭旧版 Issue: #${issue.number}`);
       }
     }
   } catch (err: any) {
@@ -264,7 +264,7 @@ export async function updateRunName(runName: string): Promise<void> {
 
   try {
     execSync(
-      `gh run rename ${runId} --repo ${repo} --new-name "${runName.replace(/"/g, '\\"')}"`,
+      `gh api --method PATCH repos/${repo}/actions/runs/${runId} -f name="${runName.replace(/"/g, '\\"')}"`,
       { encoding: 'utf-8', timeout: 15000 }
     );
     console.log(`[RunName] Actions Run 已重命名为: ${runName}`);
