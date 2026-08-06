@@ -21,36 +21,51 @@
 
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { execSync } from 'child_process';
+
+// ============================================================
+//  鉴权方法：优先用 GITHUB_TOKEN env var 调 REST API
+//  ts-node 运行的 Node.js 20+ 内置 fetch，不需要额外依赖
+// ============================================================
+function authHeaders(): Record<string, string> {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return { 'Accept': 'application/vnd.github.v3+json' };
+  return {
+    'Authorization': `token ${token}`,
+    'Content-Type': 'application/json',
+    'Accept': 'application/vnd.github.v3+json',
+  };
+}
+
+function repoName(): string {
+  return process.env.REPO_NAME || process.env.GITHUB_REPOSITORY || '';
+}
 
 // ============================================================
 //  [对外接口] createIssue — 在 GitHub 仓库创建 Issue
-//  在 GitHub Actions 中用 gh CLI（免手动鉴权）
 // ============================================================
 export async function createIssue(
   title: string,
   body: string,
   labels: string[]
 ): Promise<string> {
-  const repo = process.env.REPO_NAME || process.env.GITHUB_REPOSITORY;
-
-  if (!repo) {
-    console.warn('[Issue管理] 缺少 REPO_NAME，跳过 Issue 创建');
-    return '';
-  }
+  const repo = repoName();
+  if (!repo) { console.warn('[Issue] 缺少 REPO_NAME，跳过'); return ''; }
 
   try {
-    // 写 body 到临时文件，避免 shell 特殊字符问题
-    const tmpFile = join(process.cwd(), '.issue-body-tmp.md');
-    writeFileSync(tmpFile, body, 'utf-8');
-
-    const labelArg = labels.map(l => `--label "${l}"`).join(' ');
-    const cmd = `gh issue create --repo ${repo} --title "${title.replace(/"/g, '\\"')}" --body-file "${tmpFile}" ${labelArg}`;
-    const result = execSync(cmd, { encoding: 'utf-8', timeout: 30000 }).trim();
-    console.log(`[Issue管理] Issue 创建成功: ${result}`);
-    return result;
+    const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ title, body, labels }),
+    });
+    const data = await res.json() as { html_url?: string; message?: string };
+    if (res.ok && data.html_url) {
+      console.log(`[Issue] 创建成功: ${data.html_url}`);
+      return data.html_url;
+    }
+    console.error(`[Issue] 创建失败 (${res.status}): ${data.message || JSON.stringify(data)}`);
+    return '';
   } catch (err: any) {
-    console.error('[Issue管理] Issue 创建失败:', err.stderr || err.message);
+    console.error('[Issue] 创建异常:', err.message);
     return '';
   }
 }
@@ -58,28 +73,23 @@ export async function createIssue(
 // ============================================================
 //  [对外接口] commentOnIssue — 在指定 Issue 下评论
 // ============================================================
-export async function commentOnIssue(
-  issueUrl: string,
-  commentBody: string
-): Promise<void> {
-  const repo = process.env.REPO_NAME || process.env.GITHUB_REPOSITORY;
-  if (!repo || !issueUrl) return;
-
-  const match = issueUrl.match(/github\.com\/(.+?)\/(.+?)\/issues\/(\d+)/);
-  if (!match) {
-    console.warn('[Issue管理] 无法解析 Issue URL:', issueUrl);
-    return;
-  }
+export async function commentOnIssue(issueUrl: string, commentBody: string): Promise<void> {
+  if (!issueUrl) return;
+  const repo = repoName();
+  if (!repo) return;
+  const m = issueUrl.match(/github\.com\/(.+?)\/(.+?)\/issues\/(\d+)/);
+  if (!m) { console.warn('[Issue] 无法解析 URL:', issueUrl); return; }
+  const issueNum = m[3];
 
   try {
-    const tmpFile = join(process.cwd(), '.comment-body-tmp.md');
-    writeFileSync(tmpFile, commentBody, 'utf-8');
-    execSync(`gh issue comment ${match[3]} --repo ${repo} --body-file "${tmpFile}"`, {
-      encoding: 'utf-8', timeout: 30000,
+    await fetch(`https://api.github.com/repos/${repo}/issues/${issueNum}/comments`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ body: commentBody }),
     });
-    console.log(`[Issue管理] 已在 #${match[3]} 下回复`);
+    console.log(`[Issue] 已在 #${issueNum} 回复`);
   } catch (err: any) {
-    console.error('[Issue管理] 评论失败:', err.stderr || err.message);
+    console.error('[Issue] 评论异常:', err.message);
   }
 }
 
@@ -87,43 +97,18 @@ export async function commentOnIssue(
 //  [对外接口] closePreviousIssue — 关闭上次同类型还开着的 Issue
 // ============================================================
 export async function closePreviousIssue(issuePrefix: string, label?: string): Promise<void> {
-  const repo = process.env.REPO_NAME || process.env.GITHUB_REPOSITORY;
+  const repo = repoName();
   if (!repo) return;
+  const labelFilter = label || (issuePrefix === '三方库完整性' ? 'sdk-completeness' : 'sdk-update');
+  await closeIssuesByLabel(repo, labelFilter, issuePrefix);
 
-  const labelsFilter = label || (issuePrefix === '三方库完整性' ? 'sdk-completeness' : 'sdk-update');
-
-  try {
-    // 查询当前标签下的 open Issues（用 --json 输出，Node.js 解析）
-    const jsonResult = execSync(
-      `gh issue list --repo ${repo} --state open --label "${labelsFilter}" --json number,title --limit 100`,
-      { encoding: 'utf-8', timeout: 15000 }
-    ).trim();
-
-    if (!jsonResult || jsonResult === '[]') {
-      console.log(`[Issue管理] 没有找到带标签 "${labelsFilter}" 的 open Issue`);
-      return;
-    }
-
-    const issues: Array<{ number: number; title: string }> = JSON.parse(jsonResult);
-    for (const issue of issues) {
-      if (issue.title.startsWith(`[${issuePrefix}]`)) {
-        execSync(`gh issue close ${issue.number} --repo ${repo} --reason completed`, {
-          encoding: 'utf-8', timeout: 15000,
-        });
-        console.log(`[Issue管理] 已关闭上次 ${issuePrefix} Issue: #${issue.number}`);
-      }
-    }
-  } catch (err: any) {
-    console.error('[Issue管理] 关闭旧 Issue 失败:', err.stderr || err.message);
-  }
-
-  // 也清理 V1 旧标签的 Issue（sdk-inspect / sdk-consistency）
-  await closeLegacyIssues(issuePrefix);
+  // 同时清理 V1 旧标签
+  const legacyLabel = issuePrefix === '三方库更新' ? 'sdk-inspect' : 'sdk-consistency';
+  await closeIssuesByLabel(repo, legacyLabel, issuePrefix, /* isLegacy */ true);
 }
 
 // ============================================================
-//  [对外接口] closeIssueIfNoProblems — 无兼容性问题时关闭旧 Issue
-//  V3.0 新增：Issue 只在有问题时创建，无则关旧的
+//  [对外接口] closeIssueIfNoProblems — 无问题时关闭旧 Issue
 // ============================================================
 export async function closeIssueIfNoProblems(
   issuePrefix: string,
@@ -131,96 +116,83 @@ export async function closeIssueIfNoProblems(
   hasCompatibilityIssue: boolean,
   hasSecurityVulnerability: boolean
 ): Promise<void> {
-  const hasProblems = hasCompatibilityIssue || hasSecurityVulnerability;
+  if (hasCompatibilityIssue || hasSecurityVulnerability) return; // 有问题时不关
 
-  if (!hasProblems) {
-    console.log(`[Issue管理] 未发现问题，检查是否需要关闭旧 Issue...`);
-    const repo = process.env.REPO_NAME || process.env.GITHUB_REPOSITORY;
-    if (!repo) return;
+  console.log('[Issue] 未发现问题，检查旧 Issue...');
+  const repo = repoName();
+  if (!repo) return;
 
-    try {
-      const jsonResult = execSync(
-        `gh issue list --repo ${repo} --state open --label "${label}" --json number,title --limit 100`,
-        { encoding: 'utf-8', timeout: 15000 }
-      ).trim();
+  await closeIssuesByLabel(repo, label, issuePrefix, /* isLegacy */ false, /* addComment */ true);
 
-      if (!jsonResult || jsonResult === '[]') {
-        console.log(`[Issue管理] 没有找到带标签 "${label}" 的 open Issue`);
-      } else {
-        const issues: Array<{ number: number; title: string }> = JSON.parse(jsonResult);
-        for (const issue of issues) {
-          if (issue.title.startsWith(`[${issuePrefix}]`)) {
-            // 先评论说明无问题
-            const msg = `✅ 本次扫描（${new Date().toISOString().slice(0, 10)}）未发现问题，自动关闭。`;
-            const tmpFile = join(process.cwd(), '.close-comment-tmp.md');
-            writeFileSync(tmpFile, msg, 'utf-8');
-            execSync(`gh issue comment ${issue.number} --repo ${repo} --body-file "${tmpFile}"`, {
-              encoding: 'utf-8', timeout: 15000,
-            });
-            execSync(`gh issue close ${issue.number} --repo ${repo} --reason completed`, {
-              encoding: 'utf-8', timeout: 15000,
-            });
-            console.log(`[Issue管理] 无问题，已关闭 ${issuePrefix} Issue: #${issue.number}`);
-          }
-        }
-      }
-    } catch (err: any) {
-      console.error('[Issue管理] 关闭旧 Issue 失败:', err.stderr || err.message);
-    }
-
-    // 也清理 V1 旧标签的 Issue
-    await closeLegacyIssues(issuePrefix);
-  }
+  // 同时清理 V1 旧标签
+  const legacyLabel = issuePrefix === '三方库更新' ? 'sdk-inspect' : 'sdk-consistency';
+  await closeIssuesByLabel(repo, legacyLabel, issuePrefix, /* isLegacy */ true);
 }
 
 // ============================================================
-//  辅助：关闭 V1 旧标签（sdk-inspect / sdk-consistency）的 Issue
-//  这些标签在新版中已废弃，防止旧 Issue 永远不被关闭
+//  [内部] closeIssuesByLabel — 按标签关闭匹配前缀的 Issue
 // ============================================================
-async function closeLegacyIssues(issuePrefix: string): Promise<void> {
-  const repo = process.env.REPO_NAME || process.env.GITHUB_REPOSITORY;
-  if (!repo) return;
-
-  const legacyLabelMap: Record<string, string> = {
-    '三方库更新': 'sdk-inspect',
-    '三方库完整性': 'sdk-consistency',
-  };
-  const legacyLabel = legacyLabelMap[issuePrefix];
-  if (!legacyLabel) return;
-
+async function closeIssuesByLabel(
+  repo: string,
+  label: string,
+  prefix: string,
+  isLegacy = false,
+  addComment = false
+): Promise<void> {
   try {
-    const jsonResult = execSync(
-      `gh issue list --repo ${repo} --state open --label "${legacyLabel}" --json number,title --limit 100`,
-      { encoding: 'utf-8', timeout: 15000 }
-    ).trim();
+    const listRes = await fetch(
+      `https://api.github.com/repos/${repo}/issues?state=open&labels=${encodeURIComponent(label)}&per_page=100`,
+      { headers: authHeaders() }
+    );
+    if (!listRes.ok) {
+      const txt = await listRes.text();
+      console.error(`[Issue] 查询失败 (${listRes.status}): ${txt.slice(0, 200)}`);
+      return;
+    }
 
-    if (!jsonResult || jsonResult === '[]') return;
+    const issues = await listRes.json() as Array<{ number: number; title: string }>;
+    console.log(`[Issue] 标签 "${label}" 下找到 ${issues.length} 个 open Issue`);
 
-    const issues: Array<{ number: number; title: string }> = JSON.parse(jsonResult);
+    // 匹配前缀：新版 [三方库更新] / 旧版 [SDK巡检] 等
+    const prefixVariants = isLegacy
+      ? [`[SDK${prefix === '三方库更新' ? '巡检' : '一致性'}]`, `[${prefix}]`]
+      : [`[${prefix}]`];
+
     for (const issue of issues) {
-      if (issue.title.startsWith(`[SDK${issuePrefix === '三方库更新' ? '巡检' : '一致性'}]`) || issue.title.startsWith(`[${issuePrefix}]`)) {
-        const msg = `🔄 新版插件已上线，自动关闭旧格式 Issue。回复 \`/sdk-${issuePrefix === '三方库更新' ? 'update' : 'completeness'}\` 触发新检测。`;
-        const tmpFile = join(process.cwd(), '.legacy-close-tmp.md');
-        writeFileSync(tmpFile, msg, 'utf-8');
-        execSync(`gh issue comment ${issue.number} --repo ${repo} --body-file "${tmpFile}"`, {
-          encoding: 'utf-8', timeout: 15000,
+      const match = prefixVariants.some(p => issue.title.startsWith(p));
+      if (!match) { console.log(`[Issue] #${issue.number} 标题 "${issue.title}" 不匹配前缀，跳过`); continue; }
+
+      if (addComment) {
+        const msg = `✅ 本次扫描（${new Date().toISOString().slice(0, 10)}）未发现问题，自动关闭。`;
+        await fetch(`https://api.github.com/repos/${repo}/issues/${issue.number}/comments`, {
+          method: 'POST', headers: authHeaders(), body: JSON.stringify({ body: msg }),
         });
-        execSync(`gh issue close ${issue.number} --repo ${repo} --reason completed`, {
-          encoding: 'utf-8', timeout: 15000,
+      } else if (isLegacy) {
+        const cmd = prefix === '三方库更新' ? 'update' : 'completeness';
+        const msg = `🔄 新版插件已上线，自动关闭旧格式 Issue。回复 \`/sdk-${cmd}\` 触发新检测。`;
+        await fetch(`https://api.github.com/repos/${repo}/issues/${issue.number}/comments`, {
+          method: 'POST', headers: authHeaders(), body: JSON.stringify({ body: msg }),
         });
-        console.log(`[Issue管理] 已关闭旧版 Issue: #${issue.number}`);
+      }
+
+      const closeRes = await fetch(`https://api.github.com/repos/${repo}/issues/${issue.number}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ state: 'closed', state_reason: 'completed' }),
+      });
+      if (closeRes.ok) {
+        console.log(`[Issue] 已关闭 #${issue.number}`);
+      } else {
+        console.error(`[Issue] 关闭 #${issue.number} 失败 (${closeRes.status})`);
       }
     }
   } catch (err: any) {
-    // 旧标签不存在 / gh 命令失败 → 忽略
+    console.error('[Issue] 关闭流程异常:', err.message);
   }
 }
 
 // ============================================================
 //  [对外接口] buildPagesReport — 生成 HTML 报告页面
-//  输出到 docs/reports/ 目录，由 GitHub Pages 部署
-//  filename 由调用方拼接，含日期 + 插件名 + 结果后缀
-//  例：2026-08-06-update-problem.html / 2026-08-06-update-ok.html
 // ============================================================
 export async function buildPagesReport(
   data: Record<string, unknown>,
@@ -230,52 +202,55 @@ export async function buildPagesReport(
 ): Promise<string> {
   const outputDir = join(process.cwd(), 'docs', 'reports');
   mkdirSync(outputDir, { recursive: true });
-
   const plugin = filename.includes('-update-') ? 'update' : 'completeness';
   const html = generateReportHTML(data, findings, issueUrl, plugin);
   writeFileSync(join(outputDir, filename), html, 'utf-8');
-
-  console.log(`[页面生成] 报告页面: docs/reports/${filename}`);
+  console.log(`[页面] docs/reports/${filename}`);
   return filename;
 }
 
 // ============================================================
-//  [对外接口] getPagesHost — 统一获取 GitHub Pages 域名
-//  两个插件共用，避免各自重复实现
+//  [对外接口] getPagesHost
 // ============================================================
 export function getPagesHost(): string {
-  const repo = process.env.REPO_NAME || 'Haze324/sdk-governance-plugins';
+  const repo = repoName() || 'Haze324/sdk-governance-plugins';
   const [owner, name] = repo.split('/');
   return `${owner}.github.io/${name}`;
 }
 
 // ============================================================
 //  [对外接口] updateRunName — 根据扫描结果重命名 Actions Run
-//  在 GitHub Actions 中用 gh CLI（免手动鉴权）
 // ============================================================
 export async function updateRunName(runName: string): Promise<void> {
   const runId = process.env.GITHUB_RUN_ID;
-  const repo = process.env.REPO_NAME;
-
+  const repo = repoName();
   if (!runId || !repo) {
-    console.log('[RunName] 缺少 GITHUB_RUN_ID / REPO_NAME，跳过重命名');
+    console.log(`[RunName] 跳过 (runId=${runId || '无'} repo=${repo || '无'})`);
     return;
   }
 
   try {
-    execSync(
-      `gh api --method PATCH repos/${repo}/actions/runs/${runId} -f name="${runName.replace(/"/g, '\\"')}"`,
-      { encoding: 'utf-8', timeout: 15000 }
+    const res = await fetch(
+      `https://api.github.com/repos/${repo}/actions/runs/${runId}`,
+      {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ name: runName }),
+      }
     );
-    console.log(`[RunName] Actions Run 已重命名为: ${runName}`);
+    if (res.ok) {
+      console.log(`[RunName] ✅ 已重命名为: ${runName}`);
+    } else {
+      const txt = await res.text();
+      console.error(`[RunName] ❌ 失败 (${res.status}): ${txt.slice(0, 300)}`);
+    }
   } catch (err: any) {
-    console.error('[RunName] 重命名请求异常:', err.stderr || err.message);
+    console.error('[RunName] 异常:', err.message);
   }
 }
 
 // ============================================================
-//  [对外接口] writeActionSummary — 写入 GitHub Actions Step Summary
-//  每次运行都生成，不管有没有问题
+//  [对外接口] writeActionSummary
 // ============================================================
 export async function writeActionSummary(
   title: string,
@@ -288,56 +263,38 @@ export async function writeActionSummary(
 ): Promise<void> {
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
   if (!summaryPath) {
-    console.log(`[Action摘要] ${title}`);
-    console.log(`  SDK 总数: ${summary['totalSDKs'] || summary['missingCount'] || 'N/A'}`);
-    console.log(`  问题: ${findings.length} 项`);
-    console.log(`  报告: ${reportUrl}`);
+    console.log(`[摘要] ${title} | SDK: ${summary['totalSDKs'] || 'N/A'} | 问题: ${findings.length}`);
     return;
   }
-
   const mode = process.env.LLM_API_KEY ? 'LLM增强' : '确定性';
-  const parts = [
-    `## ${title}`,
-    '',
+  const lines = [
+    `## ${title}`, '',
     `**扫描时间**：${summary['timestamp'] || new Date().toISOString()}  `,
-    `**运行模式**：${mode}`,
-    '',
+    `**运行模式**：${mode}`, '',
+    `| 指标 | 数值 |`, `|------|------|`,
   ];
-
   if (summary['totalSDKs'] !== undefined) {
-    parts.push(`| 指标 | 数值 |`);
-    parts.push(`|------|------|`);
-    parts.push(`| SDK 总数 | ${summary['totalSDKs']} |`);
-    if (summary['outdatedCount'] !== undefined) parts.push(`| 版本落后 | ${summary['outdatedCount']} |`);
-    if (summary['compatIssueCount'] !== undefined) parts.push(`| 兼容性问题 | ${summary['compatIssueCount']} |`);
-    if (summary['securityVulnCount'] !== undefined) parts.push(`| 安全漏洞 | ${summary['securityVulnCount']} |`);
-    parts.push('');
+    lines.push(`| SDK 总数 | ${summary['totalSDKs']} |`);
+    if (summary['outdatedCount'] !== undefined) lines.push(`| 版本落后 | ${summary['outdatedCount']} |`);
+    if (summary['compatIssueCount'] !== undefined) lines.push(`| 兼容性问题 | ${summary['compatIssueCount']} |`);
+    if (summary['securityVulnCount'] !== undefined) lines.push(`| 安全漏洞 | ${summary['securityVulnCount']} |`);
   } else {
-    parts.push(`| 指标 | 数值 |`);
-    parts.push(`|------|------|`);
-    if (summary['missingCount'] !== undefined) parts.push(`| 功能缺失 | ${summary['missingCount']} |`);
-    if (summary['bugRiskCount'] !== undefined) parts.push(`| Bug 风险 | ${summary['bugRiskCount']} |`);
-    parts.push('');
+    if (summary['missingCount'] !== undefined) lines.push(`| 功能缺失 | ${summary['missingCount']} |`);
+    if (summary['bugRiskCount'] !== undefined) lines.push(`| Bug 风险 | ${summary['bugRiskCount']} |`);
   }
-
+  lines.push('');
   if (hasCompatibilityIssue || hasSecurityVulnerability) {
-    parts.push(`### ⚠️ 发现问题 → 已创建 Issue`);
-    parts.push(`- Issue: ${issueUrl}`);
+    lines.push(`### ⚠️ 发现问题 → 已创建 Issue`, `- Issue: ${issueUrl}`);
   } else {
-    parts.push(`### ✅ 未发现需要关注的问题`);
-    parts.push(`- 本次扫描未发现兼容性问题或安全漏洞`);
+    lines.push(`### ✅ 未发现问题`);
   }
-
-  parts.push('');
-  parts.push(`📋 [完整报告](${reportUrl})`);
-  parts.push('');
-
-  writeFileSync(summaryPath, parts.join('\n'), 'utf-8');
-  console.log('[Action摘要] 已写入 GITHUB_STEP_SUMMARY');
+  lines.push('', `📋 [完整报告](${reportUrl})`, '');
+  writeFileSync(summaryPath, lines.join('\n'), 'utf-8');
+  console.log('[摘要] 已写入 GITHUB_STEP_SUMMARY');
 }
 
 // ============================================================
-//  [核心] generateReportHTML — 生成完整 HTML 报告页面
+//  [内部] generateReportHTML
 // ============================================================
 function generateReportHTML(
   data: Record<string, unknown>,
@@ -445,17 +402,12 @@ function generateReportHTML(
 
 function renderFindingsHTML(findings: unknown[]): string {
   if (findings.length === 0) return '<p style="text-align:center;color:var(--text-secondary);padding:48px">未发现问题</p>';
-
   const groups: Record<string, unknown[]> = {
     critical: findings.filter((f: any) => f['severity'] === 'critical' || f['severity'] === 'high'),
     warning: findings.filter((f: any) => f['severity'] === 'warning' || f['severity'] === 'medium' || f['status'] === 'outdated'),
     info: findings.filter((f: any) => f['severity'] === 'info' || f['severity'] === 'low' || f['status'] === 'uptodate' || f['status'] === 'unreachable'),
   };
-
-  const labels: Record<string, string> = {
-    critical: '严重', warning: '警告', info: '提示',
-  };
-
+  const labels: Record<string, string> = { critical: '严重', warning: '警告', info: '提示' };
   let html = '';
   for (const [severity, items] of Object.entries(groups)) {
     if (items.length === 0) continue;
@@ -466,19 +418,16 @@ function renderFindingsHTML(findings: unknown[]): string {
       html += `<div class="finding" data-severity="${severity}">
         <div class="finding-header">
           <span class="severity-badge ${severity}">${labels[severity]}</span>
-          <span class="finding-title">${escapeHtml(String(title))}</span>
-          <span class="finding-module">${escapeHtml(String(f['module'] || ''))}</span>
+          <span class="finding-title">${e(title)}</span>
+          <span class="finding-module">${e(String(f['module'] || ''))}</span>
         </div>
         <div class="finding-body">
-          <div class="row"><span class="label">详情：</span>${escapeHtml(String(f['detail'] || ''))}</div>
-          ${f['suggestion'] ? `<div class="row"><span class="label">建议：</span>${escapeHtml(String(f['suggestion']))}</div>` : ''}
+          <div class="row"><span class="label">详情：</span>${e(String(f['detail'] || ''))}</div>
+          ${f['suggestion'] ? `<div class="row"><span class="label">建议：</span>${e(String(f['suggestion']))}</div>` : ''}
         </div>
       </div>`;
     }
   }
   return html;
 }
-
-function escapeHtml(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+function e(s: string): string { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
