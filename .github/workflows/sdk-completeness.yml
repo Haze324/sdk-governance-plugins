@@ -63,7 +63,7 @@ jobs:
       - name: 运行三方库完整性检测
         if: steps.check.outputs.should_run == 'true'
         id: completeness
-        run: npx ts-node src/completeness/main.ts
+        run: npx --no-install ts-node src/completeness/main.ts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_RUN_ID: ${{ github.run_id }}
