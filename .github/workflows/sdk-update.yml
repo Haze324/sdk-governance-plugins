@@ -10,6 +10,7 @@ on:
 # issue_comment 事件的 GITHUB_TOKEN 默认为只读，需要显式声明写入权限
 permissions:
   contents: write
+  actions: write
 
 jobs:
   sdk-update:
