@@ -19,6 +19,7 @@ import { UpstreamInfo } from './upstream-check';
 import {
   createIssue, closeIssueIfNoProblems, buildPagesReport,
   commentOnIssue, writeActionSummary, closePreviousIssue,
+  getPagesHost, updateRunName,
 } from '../shared/report-utils';
 
 /** 报告输入 */
@@ -57,6 +58,11 @@ export async function generateReport(input: ReportInput): Promise<void> {
   const hasProblems = hasCompatibilityIssue || hasSecurityVulnerability;
 
   const timestamp = new Date().toISOString();
+  const date = timestamp.slice(0, 10);
+  const resultSuffix = hasProblems ? 'problem' : 'ok';
+  const reportFileName = `${date}-update-${resultSuffix}.html`;
+  const reportUrl = `https://${getPagesHost()}/reports/${reportFileName}`;
+
   const summary = {
     timestamp,
     repo: process.env.REPO_NAME || '',
@@ -68,8 +74,6 @@ export async function generateReport(input: ReportInput): Promise<void> {
     unreachableCount: unreachable.length,
     mode: input.mode,
   };
-
-  const reportUrl = `https://${getPagesHost()}/reports/${timestamp.slice(0, 10)}-update.html`;
 
   // ----------------------------------------------------------
   //  ① Action Summary — 每次都有
@@ -85,12 +89,12 @@ export async function generateReport(input: ReportInput): Promise<void> {
 
   if (trigger === 'issue_comment' && commentIssueUrl) {
     // Issue 评论触发 → 总是回复
-    await commentOnIssue(commentIssueUrl, buildCommentSummary(summary, compatIssues, securityVulns, outdated, unreachable));
+    await commentOnIssue(commentIssueUrl, buildCommentSummary(summary, compatIssues, securityVulns, outdated, unreachable, reportUrl));
   } else {
     if (hasProblems) {
       // 关旧 Issue + 开新 Issue
       await closePreviousIssue('三方库更新', 'sdk-update');
-      const title = `[三方库更新] ${timestamp.slice(0, 10)} — SDK ${summary.totalSDKs} · 兼容性 ${compatIssues.length} · 漏洞 ${securityVulns.length}`;
+      const title = `[三方库更新] ${date} — SDK ${summary.totalSDKs}个 · 兼容性${compatIssues.length} · 漏洞${securityVulns.length} · 落后${outdated.length}`;
       issueUrl = await createIssue(title, buildIssueBody(summary, compatIssues, securityVulns, outdated, uptodate, unreachable, reportUrl), ['sdk-update']);
     } else {
       // 无问题 → 关闭旧的 Issue
@@ -99,9 +103,17 @@ export async function generateReport(input: ReportInput): Promise<void> {
   }
 
   // ----------------------------------------------------------
-  //  ③ Report Page — 每次都有
+  //  ③ Run 名称 — 根据结果重命名
   // ----------------------------------------------------------
-  await buildPagesReport(summary, findings, issueUrl, 'update');
+  const runName = hasProblems
+    ? `三方库更新检测 — SDK ${summary.totalSDKs}个 · 兼容性${compatIssues.length} · 漏洞${securityVulns.length} · 落后${outdated.length} ⚠️`
+    : `三方库更新检测 — SDK ${summary.totalSDKs}个 · ✅ 无问题`;
+  await updateRunName(runName);
+
+  // ----------------------------------------------------------
+  //  ④ Report Page — 每次都有
+  // ----------------------------------------------------------
+  await buildPagesReport(summary, findings, issueUrl, reportFileName);
   console.log('[更新检测报告] 完成');
 }
 
@@ -250,7 +262,8 @@ function buildCommentSummary(
   compatIssues: Finding[],
   securityVulns: unknown[],
   outdated: Finding[],
-  unreachable: Finding[]
+  unreachable: Finding[],
+  reportUrl: string
 ): string {
   const parts = ['## 更新检测结果', ''];
 
@@ -275,12 +288,6 @@ function buildCommentSummary(
     }
   }
 
-  parts.push('', `📋 [完整报告](https://${getPagesHost()}/reports/${(summary['timestamp'] as string).slice(0, 10)}-update.html)`);
+  parts.push('', `📋 [完整报告](${reportUrl})`);
   return parts.join('\n');
-}
-
-function getPagesHost(): string {
-  const repo = process.env.REPO_NAME || 'Haze324/sdk-governance-plugins';
-  const [owner, name] = repo.split('/');
-  return `${owner}.github.io/${name}`;
 }

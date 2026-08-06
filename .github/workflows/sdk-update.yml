@@ -1,4 +1,5 @@
 name: 三方库更新检测
+run-name: 三方库更新检测 — ${{ github.event_name == 'schedule' && '定时' || github.event_name == 'workflow_dispatch' && '手动' || '指令触发' }}
 on:
   schedule:
     - cron: '0 9 * * 1'        # 每周一早 9:00 自动检测
@@ -69,6 +70,7 @@ jobs:
         run: npx ts-node src/update/main.ts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
           REPO_NAME: ${{ github.repository }}
           TRIGGER_SOURCE: ${{ github.event_name }}
           COMMENT_BODY: ${{ steps.check.outputs.comment_body }}

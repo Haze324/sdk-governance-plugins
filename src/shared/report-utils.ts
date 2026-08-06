@@ -213,23 +213,74 @@ export async function closeIssueIfNoProblems(
 // ============================================================
 //  [对外接口] buildPagesReport — 生成 HTML 报告页面
 //  输出到 docs/reports/ 目录，由 GitHub Pages 部署
+//  filename 由调用方拼接，含日期 + 插件名 + 结果后缀
+//  例：2026-08-06-update-problem.html / 2026-08-06-update-ok.html
 // ============================================================
 export async function buildPagesReport(
   data: Record<string, unknown>,
   findings: unknown[],
   issueUrl: string,
-  plugin: string
+  filename: string
 ): Promise<string> {
-  const date = new Date().toISOString().slice(0, 10);
-  const filename = `${date}-${plugin}.html`;
   const outputDir = join(process.cwd(), 'docs', 'reports');
   mkdirSync(outputDir, { recursive: true });
 
+  const plugin = filename.includes('-update-') ? 'update' : 'completeness';
   const html = generateReportHTML(data, findings, issueUrl, plugin);
   writeFileSync(join(outputDir, filename), html, 'utf-8');
 
   console.log(`[页面生成] 报告页面: docs/reports/${filename}`);
   return filename;
+}
+
+// ============================================================
+//  [对外接口] getPagesHost — 统一获取 GitHub Pages 域名
+//  两个插件共用，避免各自重复实现
+// ============================================================
+export function getPagesHost(): string {
+  const repo = process.env.REPO_NAME || 'Haze324/sdk-governance-plugins';
+  const [owner, name] = repo.split('/');
+  return `${owner}.github.io/${name}`;
+}
+
+// ============================================================
+//  [对外接口] updateRunName — 根据扫描结果重命名 Actions Run
+//  通过 GitHub API PATCH 实现，在扫描完成后调用
+//  刚触发时 run-name 只有触发方式+日期，跑完后追加结论
+// ============================================================
+export async function updateRunName(runName: string): Promise<void> {
+  const runId = process.env.GITHUB_RUN_ID;
+  const token = process.env.GITHUB_TOKEN;
+  const repo = process.env.REPO_NAME;
+
+  if (!runId || !token || !repo) {
+    console.log('[RunName] 缺少 GITHUB_RUN_ID / TOKEN / REPO_NAME，跳过重命名');
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${repo}/actions/runs/${runId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `token ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github.v3+json',
+        },
+        body: JSON.stringify({ name: runName }),
+      }
+    );
+
+    if (response.ok) {
+      console.log(`[RunName] Actions Run 已重命名为: ${runName}`);
+    } else {
+      const err = await response.text();
+      console.warn(`[RunName] 重命名失败 (${response.status}): ${err.slice(0, 200)}`);
+    }
+  } catch (err) {
+    console.error('[RunName] 重命名请求异常:', err);
+  }
 }
 
 // ============================================================

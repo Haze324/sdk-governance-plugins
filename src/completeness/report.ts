@@ -16,6 +16,7 @@
 import {
   createIssue, closeIssueIfNoProblems, buildPagesReport,
   commentOnIssue, writeActionSummary,
+  getPagesHost, updateRunName,
 } from '../shared/report-utils';
 import { UpstreamAPI } from './upstream-parser';
 import { HarmonyAPI } from './harmony-parser';
@@ -61,7 +62,9 @@ export async function generateReport(input: CompletenessReportInput): Promise<vo
     highCount: high.length,
   };
 
-  const reportUrl = `https://${getPagesBaseUrl()}/reports/${date}-completeness.html`;
+  const resultSuffix = hasProblems ? 'problem' : 'ok';
+  const reportFileName = `${date}-completeness-${resultSuffix}.html`;
+  const reportUrl = `https://${getPagesHost()}/reports/${reportFileName}`;
 
   // ----------------------------------------------------------
   //  ① Action Summary — 每次都有
@@ -86,7 +89,7 @@ export async function generateReport(input: CompletenessReportInput): Promise<vo
     await commentOnIssue(commentIssueUrl, commentSummary);
   } else {
     if (hasProblems) {
-      const title = `[三方库完整性] ${date} — ${input.upstream.sdkName} 缺失 ${missingCount} · 风险 ${bugRiskCount}`;
+      const title = `[三方库完整性] ${date} — ${input.upstream.sdkName} · 缺失${missingCount}项 · 风险${bugRiskCount}个`;
       const body = [
         '## 对比概览', '',
         '| 指标 | 数值 |', '|------|------|',
@@ -108,9 +111,17 @@ export async function generateReport(input: CompletenessReportInput): Promise<vo
   }
 
   // ----------------------------------------------------------
-  //  ③ Report Page — 每次都有
+  //  ③ Run 名称 — 根据结果重命名
   // ----------------------------------------------------------
-  await buildPagesReport(summary, findings, issueUrl, 'completeness');
+  const runName = hasProblems
+    ? `三方库完整性检测 — ${input.upstream.sdkName} · 缺失${missingCount}项 · 风险${bugRiskCount}个 ⚠️`
+    : `三方库完整性检测 — ${input.upstream.sdkName} · ✅ 无问题`;
+  await updateRunName(runName);
+
+  // ----------------------------------------------------------
+  //  ④ Report Page — 每次都有
+  // ----------------------------------------------------------
+  await buildPagesReport(summary, findings, issueUrl, reportFileName);
   console.log('[完整性报告] 完成');
 }
 
@@ -137,10 +148,4 @@ function buildFindingTable(findings: CompletenessFinding[]): string {
     rows.push(`| ${f.sdkName} | ${f.item} | ${f.category} | ${f.detail.replace(/\n/g, '<br>')} | ${f.suggestion} |`);
   }
   return rows.join('\n');
-}
-
-function getPagesBaseUrl(): string {
-  const repo = process.env.REPO_NAME || 'Haze324/sdk-governance-plugins';
-  const [owner, name] = repo.split('/');
-  return `${owner}.github.io/${name}`;
 }
