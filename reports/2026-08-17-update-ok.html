@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>三方库更新检测报告 — 2026-08-17T09:30:50.829Z</title>
+  <style>
+    :root {
+      --bg: #ffffff; --text: #1a1a2e; --text-secondary: #6b7280;
+      --border: #e5e7eb; --card-bg: #f9fafb;
+      --critical: #dc2626; --critical-bg: #fef2f2;
+      --warning: #d97706; --warning-bg: #fffbeb;
+      --info: #2563eb; --info-bg: #eff6ff;
+      --success: #16a34a; --success-bg: #f0fdf4;
+      --radius: 8px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text); background: var(--bg); line-height: 1.6;
+      max-width: 960px; margin: 0 auto; padding: 32px 24px;
+    }
+    .header { border-bottom: 2px solid var(--border); padding-bottom: 24px; margin-bottom: 32px; }
+    .header h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+    .header .meta { font-size: 14px; color: var(--text-secondary); }
+    .cards { display: flex; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+    .card { flex: 1; min-width: 100px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; text-align: center; }
+    .card .label { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; }
+    .card .value { font-size: 32px; font-weight: 700; }
+    .card.critical .value { color: var(--critical); }
+    .card.warning .value { color: var(--warning); }
+    .card.info .value { color: var(--info); }
+    .card.success .value { color: var(--success); }
+    .filters { display: flex; gap: 8px; margin-bottom: 24px; align-items: center; }
+    .filters input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; }
+    .filter-btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); font-size: 13px; cursor: pointer; transition: all 0.15s; }
+    .filter-btn:hover { background: #f3f4f6; }
+    .filter-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+    .section-title { font-size: 16px; font-weight: 600; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .finding { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+    .finding-header { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; gap: 12px; }
+    .finding-header:hover { background: var(--card-bg); }
+    .severity-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
+    .severity-badge.critical { background: var(--critical-bg); color: var(--critical); }
+    .severity-badge.warning { background: var(--warning-bg); color: var(--warning); }
+    .severity-badge.info { background: var(--info-bg); color: var(--info); }
+    .finding-title { flex: 1; font-size: 14px; font-weight: 500; }
+    .finding-module { font-size: 12px; color: var(--text-secondary); }
+    .finding-body { display: none; padding: 0 16px 16px; font-size: 14px; border-top: 1px solid var(--border); }
+    .finding.open .finding-body { display: block; }
+    .finding-body .row { margin-top: 8px; }
+    .finding-body .row .label { font-size: 12px; color: var(--text-secondary); }
+    .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); }
+    .footer a { color: var(--info); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>三方库更新检测报告</h1>
+    <div class="meta">扫描时间：2026-08-17T09:30:50.829Z &nbsp;|&nbsp; 仓库：Haze324/sdk-governance-plugins</div>
+  </div>
+  <div class="cards">
+    <div class="card"><div class="label">totalSDKs</div><div class="value">0</div></div><div class="card"><div class="label">outdatedCount</div><div class="value">0</div></div><div class="card"><div class="label">compatIssueCount</div><div class="value">0</div></div><div class="card"><div class="label">securityVulnCount</div><div class="value">0</div></div><div class="card"><div class="label">uptodateCount</div><div class="value">0</div></div><div class="card"><div class="label">unreachableCount</div><div class="value">0</div></div><div class="card"><div class="label">mode</div><div class="value">确定性</div></div>
+  </div>
+  <div class="filters">
+    <input type="text" id="searchInput" placeholder="搜索 SDK 或关键词..." oninput="filterFindings()">
+    <button class="filter-btn active" onclick="setFilter('all')" id="btn-all">全部</button>
+    <button class="filter-btn" onclick="setFilter('critical')" id="btn-critical">严重</button>
+    <button class="filter-btn" onclick="setFilter('warning')" id="btn-warning">警告</button>
+    <button class="filter-btn" onclick="setFilter('info')" id="btn-info">提示</button>
+  </div>
+  <div id="findings-container"><p style="text-align:center;color:var(--text-secondary);padding:48px">未发现问题</p></div>
+  <div class="footer">
+    由 SDK 治理插件 v2.0 自动生成 &nbsp;|&nbsp;
+    
+  </div>
+  <script>
+    let activeFilter='all';
+    function setFilter(f){activeFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));document.getElementById('btn-'+f).classList.add('active');filterFindings();}
+    function filterFindings(){var q=document.getElementById('searchInput').value.toLowerCase();document.querySelectorAll('.finding').forEach(el=>{var t=el.textContent.toLowerCase(),s=el.dataset.severity;el.style.display=(!q||t.includes(q))&&(activeFilter==='all'||s===activeFilter)?'':'none';});}
+    document.querySelectorAll('.finding-header').forEach(h=>h.addEventListener('click',()=>h.parentElement.classList.toggle('open')));
+  </script>
+</body>
+</html>
